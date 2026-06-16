@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Andre's Job Bot 🔍</title>
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg:      #0f172a;
+      --surf:    #1e293b;
+      --bdr:     #334155;
+      --muted:   #475569;
+      --txt:     #e2e8f0;
+      --sub:     #94a3b8;
+      --acc:     #f59e0b;
+      --acc-dk:  #d97706;
+      --green:   #4ade80;
+      --blue:    #60a5fa;
+      --purple:  #a78bfa;
+      --teal:    #2dd4bf;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+           background:var(--bg); color:var(--txt); min-height:100vh; font-size:14px; }
+
+    /* Header */
+    .header { background:var(--surf); border-bottom:1px solid var(--bdr);
+      padding:13px 22px; display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; z-index:100; }
+    .logo { display:flex; align-items:center; gap:11px; }
+    .logo-icon { font-size:24px; }
+    .logo-title { font-size:17px; font-weight:700; color:#f8fafc; }
+    .logo-sub   { font-size:11px; color:var(--sub); margin-top:1px; }
+    .header-r { display:flex; gap:10px; align-items:center; }
+    .hstat { background:var(--bg); border:1px solid var(--bdr); border-radius:20px;
+      padding:4px 13px; font-size:12px; color:var(--sub); }
+    .hstat b { color:var(--acc); }
+    .btn-icon { background:var(--bdr); border:none; border-radius:8px;
+      padding:6px 13px; color:var(--sub); cursor:pointer; font-size:12px; transition:.15s; }
+    .btn-icon:hover { background:var(--muted); color:var(--txt); }
+
+    /* Layout */
+    .layout { display:flex; min-height:calc(100vh - 54px); }
+
+    /* Sidebar */
+    .sidebar { width:268px; flex-shrink:0; background:var(--surf);
+      border-right:1px solid var(--bdr); padding:18px;
+      position:sticky; top:54px; height:calc(100vh - 54px); overflow-y:auto; }
+    .sb-sec { margin-bottom:22px; }
+    .sb-lbl { font-size:10px; font-weight:700; color:var(--muted);
+      text-transform:uppercase; letter-spacing:1.1px; margin-bottom:9px; }
+
+    /* Profile card */
+    .profile-card { background:var(--bg); border:1px solid var(--bdr);
+      border-radius:10px; padding:13px; }
+    .p-name { font-weight:700; font-size:14px; color:#f1f5f9; margin-bottom:2px; }
+    .p-role { font-size:11px; color:var(--muted); margin-bottom:9px; }
+    .skill-wrap { display:flex; flex-wrap:wrap; gap:4px; }
+    .chip { font-size:10px; padding:2px 7px; border-radius:10px; }
+    .chip-ops  { background:#1e3a5f; color:var(--blue); }
+    .chip-trade{ background:#1a2e1a; color:var(--teal); }
+
+    /* Preset buttons */
+    .preset-row { display:flex; gap:5px; }
+    .preset-btn { flex:1; padding:7px 4px; background:var(--bg);
+      border:1px solid var(--bdr); border-radius:7px;
+      color:var(--sub); font-size:11px; cursor:pointer; text-align:center;
+      transition:.15s; }
+    .preset-btn:hover { border-color:var(--acc); color:var(--acc); }
+    .preset-btn.active { background:rgba(245,158,11,.1);
+      border-color:var(--acc); color:var(--acc); font-weight:700; }
+
+    /* Search input */
+    .srch-in { width:100%; background:var(--bg); border:1px solid var(--bdr);
+      border-radius:8px; padding:8px 11px; color:var(--txt);
+      font-size:13px; outline:none; transition:.15s; }
+    .srch-in:focus { border-color:var(--acc); }
+
+    /* Filter buttons */
+    .fg { display:flex; flex-direction:column; gap:5px; }
+    .fbt { display:flex; align-items:center; gap:7px; padding:8px 11px;
+      background:var(--bg); border:1px solid var(--bdr); border-radius:8px;
+      color:var(--sub); font-size:12px; cursor:pointer; text-align:left;
+      transition:.15s; width:100%; }
+    .fbt:hover { border-color:var(--acc); color:var(--acc); }
+    .fbt.active { background:rgba(245,158,11,.08);
+      border-color:var(--acc); color:var(--acc); font-weight:700; }
+    .fbt .cnt { margin-left:auto; background:var(--bdr);
+      border-radius:10px; padding:1px 7px; font-size:10px; color:var(--sub); }
+    .fbt.active .cnt { background:rgba(245,158,11,.2); color:var(--acc); }
+
+    /* Salary */
+    .sal-val { font-size:19px; font-weight:700; color:var(--acc); margin-bottom:7px; }
+    input[type=range] { width:100%; accent-color:var(--acc); cursor:pointer; }
+
+    /* Search button */
+    .srch-btn { width:100%; background:var(--acc); color:var(--bg);
+      border:none; border-radius:8px; padding:11px; font-size:14px;
+      font-weight:700; cursor:pointer; transition:.15s;
+      display:flex; align-items:center; justify-content:center; gap:6px; }
+    .srch-btn:hover { background:var(--acc-dk); }
+    .srch-btn:disabled { background:var(--bdr); color:var(--muted); cursor:not-allowed; }
+
+    /* Main */
+    .main { flex:1; padding:20px; overflow-y:auto; }
+
+    /* Setup tip */
+    .tip { background:rgba(96,165,250,.06); border:1px solid rgba(96,165,250,.2);
+      border-radius:9px; padding:11px 15px; font-size:12px; color:var(--blue);
+      margin-bottom:16px; display:flex; align-items:center; gap:9px; }
+    .tip a { color:var(--acc); text-decoration:none; font-weight:600; }
+    .tip-x { margin-left:auto; background:none; border:none;
+      color:var(--muted); cursor:pointer; font-size:15px; }
+
+    /* Tabs */
+    .tabs-row { display:flex; align-items:center;
+      justify-content:space-between; margin-bottom:16px; }
+    .tabs { background:var(--surf); border:1px solid var(--bdr);
+      border-radius:9px; padding:3px; display:flex; gap:2px; }
+    .tab { padding:6px 15px; border-radius:7px; border:none; background:none;
+      color:var(--sub); font-size:12px; cursor:pointer; transition:.15s; }
+    .tab:hover { color:var(--txt); }
+    .tab.active { background:var(--acc); color:var(--bg); font-weight:700; }
+    .res-cnt { font-size:12px; color:var(--sub); }
+    .res-cnt b { color:var(--acc); }
+
+    /* Loading */
+    .loading { display:flex; flex-direction:column; align-items:center;
+      justify-content:center; padding:65px 40px; gap:13px; }
+    .spin { width:36px; height:36px; border:3px solid var(--bdr);
+      border-top-color:var(--acc); border-radius:50%;
+      animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .load-msg { color:var(--sub); font-size:13px; }
+
+    /* Grid */
+    .grid { display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(355px,1fr)); gap:13px; }
+
+    /* Card */
+    .jcard { background:var(--surf); border:1px solid var(--bdr);
+      border-radius:11px; padding:15px; transition:.2s;
+      display:flex; flex-direction:column; gap:7px; }
+    .jcard:hover { border-color:rgba(245,158,11,.35);
+      box-shadow:0 5px 18px rgba(0,0,0,.35); transform:translateY(-1px); }
+    .jcard-top { display:flex; justify-content:space-between;
+      align-items:flex-start; gap:7px; }
+    .jtitle { font-size:14px; font-weight:700; color:#f1f5f9;
+      line-height:1.3; cursor:pointer; }
+    .jtitle:hover { color:var(--acc); text-decoration:underline; }
+    .score-bd { flex-shrink:0; border-radius:20px; padding:2px 8px;
+      font-size:11px; font-weight:700; border:1px solid var(--bdr); background:var(--bg); }
+    .s-hi { border-color:rgba(74,222,128,.4); color:var(--green); background:rgba(20,83,45,.2); }
+    .s-md { border-color:rgba(245,158,11,.4); color:var(--acc); background:rgba(120,53,15,.15); }
+    .s-lo { color:var(--muted); }
+    .jco { font-size:12px; color:var(--blue); font-weight:500; }
+    .jmeta { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+    .bdg { display:inline-flex; align-items:center; gap:3px;
+      padding:2px 8px; border-radius:20px;
+      font-size:11px; font-weight:600; border:1px solid transparent; }
+    .b-rem  { background:rgba(20,83,45,.25);  color:#4ade80; border-color:rgba(20,83,45,.5); }
+    .b-hyb  { background:rgba(120,53,15,.25); color:#fbbf24; border-color:rgba(120,53,15,.5); }
+    .b-ons  { background:rgba(30,58,95,.3);   color:var(--blue); border-color:rgba(30,58,95,.5); }
+    .b-gov  { background:rgba(76,29,149,.25); color:var(--purple); border-color:rgba(76,29,149,.5); }
+    .b-src  { background:var(--bg); color:var(--muted); border-color:var(--bg); }
+    .jsal      { font-size:13px; font-weight:700; color:var(--green); }
+    .jsal.none { font-size:11px; color:var(--muted); font-weight:400; }
+    .jdesc { font-size:11px; color:var(--muted); line-height:1.5;
+      display:-webkit-box; -webkit-line-clamp:3;
+      -webkit-box-orient:vertical; overflow:hidden; }
+    .jfoot { display:flex; align-items:center; justify-content:space-between; margin-top:3px; }
+    .jdate { font-size:10px; color:var(--muted); }
+    .jacts { display:flex; gap:5px; }
+    .btn-apply { background:var(--acc); color:var(--bg); border:none;
+      border-radius:6px; padding:5px 13px; font-size:12px; font-weight:700;
+      cursor:pointer; text-decoration:none; display:inline-block; transition:.15s; }
+    .btn-apply:hover { background:var(--acc-dk); }
+    .btn-save { background:transparent; border:1px solid var(--bdr);
+      color:var(--sub); border-radius:6px; padding:5px 10px;
+      font-size:12px; cursor:pointer; transition:.15s; }
+    .btn-save:hover { border-color:var(--acc); color:var(--acc); }
+    .btn-save.sv  { border-color:var(--acc); color:var(--acc); background:rgba(245,158,11,.08); }
+    .btn-save.app { border-color:var(--green); color:var(--green); background:rgba(74,222,128,.08); }
+
+    /* Empty */
+    .empty { grid-column:1/-1; text-align:center; padding:55px 40px; color:var(--muted); }
+    .empty-icon  { font-size:42px; margin-bottom:12px; }
+    .empty-title { font-size:15px; color:var(--sub); margin-bottom:5px; }
+    .empty-sub   { font-size:12px; max-width:380px; margin:0 auto; line-height:1.6; }
+
+    /* Modal */
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,.65);
+      z-index:200; display:none; align-items:center; justify-content:center; }
+    .overlay.open { display:flex; }
+    .modal { background:var(--surf); border:1px solid var(--bdr);
+      border-radius:15px; padding:26px; width:470px; max-width:95vw; }
+    .modal-title { font-size:16px; font-weight:700; margin-bottom:18px; }
+    .frow { margin-bottom:13px; }
+    .flbl { display:block; font-size:11px; color:var(--sub); margin-bottom:4px; }
+    .fin { width:100%; background:var(--bg); border:1px solid var(--bdr);
+      border-radius:7px; padding:8px 11px; color:var(--txt);
+      font-size:13px; outline:none; }
+    .fin:focus { border-color:var(--acc); }
+    .fhint { background:var(--bg); border-radius:7px; padding:11px;
+      font-size:11px; color:var(--muted); line-height:1.7; margin-top:11px; }
+    .fhint b { color:var(--acc); }
+    .mfoot { display:flex; gap:9px; justify-content:flex-end; margin-top:18px; }
+    .btn-cancel { background:var(--bdr); border:none; border-radius:7px;
+      padding:8px 16px; color:var(--sub); cursor:pointer; font-size:13px; }
+    .btn-primary { background:var(--acc); border:none; border-radius:7px;
+      padding:8px 16px; color:var(--bg); font-size:13px;
+      font-weight:700; cursor:pointer; transition:.15s; }
+    .btn-primary:hover { background:var(--acc-dk); }
+
+    /* Toast */
+    .toast { position:fixed; bottom:18px; right:18px; background:var(--surf);
+      border:1px solid var(--bdr); border-radius:9px; padding:11px 16px;
+      font-size:13px; color:var(--txt); z-index:300;
+      transform:translateY(70px); opacity:0; transition:.25s; pointer-events:none; }
+    .toast.show { transform:translateY(0); opacity:1; }
+    .toast.ok  { border-color:rgba(74,222,128,.4); }
+    .toast.err { border-color:rgba(239,68,68,.4); }
+
+    ::-webkit-scrollbar { width:5px; }
+    ::-webkit-scrollbar-thumb { background:var(--bdr); border-radius:3px; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <span class="logo-icon">🔍</span>
+    <div>
+      <div class="logo-title">Andre's Job Bot</div>
+      <div class="logo-sub">Riverside, CA · Remote-first · $60k+ · Operations &amp; Trading</div>
+    </div>
+  </div>
+  <div class="header-r">
+    <div class="hstat" id="hs-total">Ready</div>
+    <div class="hstat" id="hs-types" style="display:none"></div>
+    <button class="btn-icon" onclick="openModal()">⚙️ API Keys</button>
+  </div>
+</div>
+
+<!-- Layout -->
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <!-- Profile -->
+    <div class="sb-sec">
+      <div class="sb-lbl">Your Profile</div>
+      <div class="profile-card">
+        <div class="p-name">Andre Charles</div>
+        <div class="p-role">Operations · Admin · Data · Real Estate · Day Trader</div>
+        <div class="skill-wrap">
+          <span class="chip chip-ops">SQL</span>
+          <span class="chip chip-ops">Excel</span>
+          <span class="chip chip-ops">Logistics</span>
+          <span class="chip chip-ops">Data Analysis</span>
+          <span class="chip chip-ops">Admin</span>
+          <span class="chip chip-ops">Google Workspace</span>
+          <span class="chip chip-ops">Real Estate</span>
+          <span class="chip chip-trade">📈 Day Trader</span>
+          <span class="chip chip-trade">Technical Analysis</span>
+          <span class="chip chip-trade">Support &amp; Resistance</span>
+          <span class="chip chip-trade">Risk Management</span>
+          <span class="chip chip-trade">Trading Psychology</span>
+          <span class="chip chip-trade">TradingView</span>
+          <span class="chip chip-trade">3 yrs Experience</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Preset -->
+    <div class="sb-sec">
+      <div class="sb-lbl">Search Mode</div>
+      <div class="preset-row" style="margin-bottom:8px">
+        <button class="preset-btn" data-preset="ops"
+          onclick="usePreset(this,'ops')">💼 Ops/Admin</button>
+        <button class="preset-btn active" data-preset="both"
+          onclick="usePreset(this,'both')">🌐 Both</button>
+        <button class="preset-btn" data-preset="trading"
+          onclick="usePreset(this,'trading')">📈 Trading</button>
+      </div>
+      <input class="srch-in" id="inp-kw"
+        value="operations trader data analyst financial admin coordinator trading"
+        placeholder="Or type custom keywords...">
+    </div>
+
+    <!-- Work Type -->
+    <div class="sb-sec">
+      <div class="sb-lbl">Work Type</div>
+      <div class="fg">
+        <button class="fbt active" data-wt="remote,hybrid,all" onclick="pickWt(this)">
+          🌐 All <span class="cnt" id="c-all">—</span>
+        </button>
+        <button class="fbt" data-wt="remote" onclick="pickWt(this)">
+          🏠 Remote Only <span class="cnt" id="c-rem">—</span>
+        </button>
+        <button class="fbt" data-wt="remote,hybrid" onclick="pickWt(this)">
+          🔀 Remote + Hybrid <span class="cnt" id="c-rh">—</span>
+        </button>
+        <button class="fbt" data-wt="onsite" onclick="pickWt(this)">
+          📍 Local / On-site <span class="cnt" id="c-loc">—</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Salary -->
+    <div class="sb-sec">
+      <div class="sb-lbl">Minimum Salary</div>
+      <div class="sal-val" id="sal-disp">$60,000 / yr</div>
+      <input type="range" id="inp-sal"
+        min="40000" max="200000" step="5000" value="60000"
+        oninput="updSal(this.value)">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px;">
+        <span>$40k</span><span>$200k</span>
+      </div>
+    </div>
+
+    <!-- Search btn -->
+    <button class="srch-btn" id="srch-btn" onclick="runSearch()">
+      🔍 &nbsp;Search Jobs
+    </button>
+
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Setup tip -->
+    <div class="tip" id="tip">
+      💡 Add a <strong>free USAJobs API key</strong> to search federal jobs →
+      <a href="#" onclick="openModal();return false;">Set up ⚙️</a>
+      &nbsp;·&nbsp;
+      Free at <a href="https://developer.usajobs.gov" target="_blank">developer.usajobs.gov</a>
+      <button class="tip-x" onclick="this.parentElement.style.display='none'">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-row">
+      <div class="tabs">
+        <button class="tab active" onclick="pickTab(this,'results')">Search Results</button>
+        <button class="tab" onclick="pickTab(this,'saved')">⭐ Saved</button>
+        <button class="tab" onclick="pickTab(this,'applied')">✅ Applied</button>
+      </div>
+      <div class="res-cnt" id="res-cnt"></div>
+    </div>
+
+    <!-- Results pane -->
+    <div id="pane-results">
+      <div class="empty" id="splash">
+        <div class="empty-icon">🔍</div>
+        <div class="empty-title">Ready to find your next opportunity</div>
+        <div class="empty-sub">
+          Choose a <strong>Search Mode</strong> above — Ops/Admin, Trading, or Both —
+          then click <strong>Search Jobs</strong>. I'll scan RemoteOK, Jobicy, Arbeitnow,
+          Craigslist Inland Empire, Riverside City &amp; County, and USAJobs all at once.
+        </div>
+      </div>
+      <div class="loading" id="loader" style="display:none">
+        <div class="spin"></div>
+        <div class="load-msg" id="load-msg">Starting search...</div>
+      </div>
+      <div class="grid" id="grid-results"></div>
+    </div>
+
+    <!-- Saved pane -->
+    <div id="pane-saved" style="display:none">
+      <div class="grid" id="grid-saved"></div>
+    </div>
+
+    <!-- Applied pane -->
+    <div id="pane-applied" style="display:none">
+      <div class="grid" id="grid-applied"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Settings Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-title">⚙️ USAJobs API Setup</div>
+    <div class="frow">
+      <label class="flbl">Your email (used to authenticate)</label>
+      <input class="fin" type="email" id="cfg-email" placeholder="you@email.com">
+    </div>
+    <div class="frow">
+      <label class="flbl">
+        USAJobs API Key
+        <a href="https://developer.usajobs.gov/apirequest/" target="_blank"
+           style="color:var(--acc);text-decoration:none;margin-left:8px;">→ Get free key</a>
+      </label>
+      <input class="fin" type="password" id="cfg-key" placeholder="Paste your API key...">
+    </div>
+    <div class="fhint">
+      <b>How to get your free key:</b><br>
+      1. Go to developer.usajobs.gov<br>
+      2. Click "Request an API Key"<br>
+      3. Fill in your name and email<br>
+      4. Key arrives by email (usually within minutes)
+    </div>
+    <div class="mfoot">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveConfig()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const PRESETS = {
+    ops:     'operations data analyst admin coordinator logistics',
+    trading: 'trader trading analyst fintech financial analyst market analyst risk management',
+    both:    'operations trader data analyst financial admin coordinator trading'
+  };
+
+  let allJobs  = [];
+  let savedMap = {};
+  let activeWt = 'remote,hybrid,all';
+  let busy     = false;
+
+  window.addEventListener('load', async () => {
+    await loadSaved();
+    try {
+      const cfg = await fetch('/api/config').then(r => r.json());
+      if (cfg.usajobs_email)   document.getElementById('cfg-email').value = cfg.usajobs_email;
+      if (cfg.usajobs_key_set) document.getElementById('tip').style.display = 'none';
+    } catch(e) {}
+  });
+
+  function updSal(v) {
+    document.getElementById('sal-disp').textContent = `$${(+v).toLocaleString()} / yr`;
+  }
+
+  function usePreset(btn, key) {
+    document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('inp-kw').value = PRESETS[key];
+  }
+
+  function pickWt(btn) {
+    document.querySelectorAll('[data-wt]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeWt = btn.dataset.wt;
+  }
+
+  function pickTab(btn, pane) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    ['results','saved','applied'].forEach(p => {
+      document.getElementById(`pane-${p}`).style.display = p === pane ? 'block' : 'none';
+    });
+    document.getElementById('res-cnt').textContent = '';
+    if (pane === 'saved')   renderTracker('saved');
+    if (pane === 'applied') renderTracker('applied');
+  }
+
+  function esc(s) {
+    return String(s||'')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fmtDate(d) {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+    catch(e) { return String(d).slice(0,10); }
+  }
+
+  async function runSearch() {
+    if (busy) return;
+    busy = true;
+    const btn = document.getElementById('srch-btn');
+    btn.disabled = true; btn.textContent = '⏳ Searching...';
+    document.getElementById('splash').style.display = 'none';
+    document.getElementById('loader').style.display = 'flex';
+    document.getElementById('grid-results').innerHTML = '';
+    document.getElementById('res-cnt').textContent = '';
+    document.getElementById('hs-total').textContent = 'Searching...';
+    document.getElementById('hs-types').style.display = 'none';
+
+    const msgs = [
+      'Scanning RemoteOK…', 'Checking Jobicy…', 'Querying Arbeitnow…',
+      'Fetching Riverside City & County jobs…', 'Reading Craigslist Inland Empire…',
+      'Checking USAJobs (Federal)…', 'Scoring results against your profile…'
+    ];
+    let mi = 0;
+    const iv = setInterval(() => {
+      if (mi < msgs.length)
+        document.getElementById('load-msg').textContent = msgs[mi++];
+    }, 1800);
+
+    try {
+      const kw  = document.getElementById('inp-kw').value.trim() || PRESETS.both;
+      const sal = document.getElementById('inp-sal').value;
+      const qs  = new URLSearchParams({ keywords: kw, work_type: activeWt, min_salary: sal });
+      const data = await fetch(`/api/search?${qs}`).then(r => r.json());
+      allJobs = data.jobs || [];
+      clearInterval(iv);
+      document.getElementById('loader').style.display = 'none';
+      renderResults(allJobs);
+      updateStats(allJobs);
+    } catch(err) {
+      clearInterval(iv);
+      document.getElementById('loader').style.display = 'none';
+      document.getElementById('grid-results').innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-title">Search failed</div>
+          <div class="empty-sub">Make sure the app is still running.<br><small>${esc(err.message)}</small></div>
+        </div>`;
+      toast('Search failed — is the server still running?', 'err');
+    }
+    busy = false;
+    btn.disabled = false; btn.textContent = '🔍  Search Jobs';
+  }
+
+  function renderResults(jobs) {
+    const g = document.getElementById('grid-results');
+    if (!jobs.length) {
+      g.innerHTML = `<div class="empty">
+        <div class="empty-icon">😕</div>
+        <div class="empty-title">No results</div>
+        <div class="empty-sub">Try switching search mode or expanding the work type filter.</div>
+      </div>`;
+      document.getElementById('res-cnt').innerHTML = '0 results';
+      return;
+    }
+    document.getElementById('res-cnt').innerHTML = `Found <b>${jobs.length}</b> jobs`;
+    g.innerHTML = jobs.map(j => card(j)).join('');
+  }
+
+  function card(j) {
+    const saved   = savedMap[j.id];
+    const applied = saved && saved.status === 'applied';
+
+    const wtBadge = { remote:'<span class="bdg b-rem">🏠 Remote</span>',
+      hybrid:'<span class="bdg b-hyb">🔀 Hybrid</span>',
+      onsite:'<span class="bdg b-ons">📍 On-site</span>' }[j.work_type]
+      || '<span class="bdg b-ons">📍 On-site</span>';
+
+    const isGov = /gov|riverside|transit|school|education|county|city|federal/i.test(j.source||'');
+    const srcBadge = isGov
+      ? `<span class="bdg b-gov">🏛️ ${esc(j.source)}</span>`
+      : `<span class="bdg b-src">${esc(j.source)}</span>`;
+
+    const sc = j.score || 0;
+    let scoreEl = '';
+    if (sc >= 50) scoreEl = `<span class="score-bd s-hi">${sc}% match</span>`;
+    else if (sc >= 20) scoreEl = `<span class="score-bd s-md">${sc}% match</span>`;
+
+    const hasSal = (j.salary_min||0) > 0;
+    const salTxt = hasSal ? `💰 ${esc(j.salary_display)}` : '💰 Salary not listed';
+
+    const locBdg = (j.location && j.location !== 'Remote' && j.location !== 'Remote, United States')
+      ? `<span class="bdg b-src">📍 ${esc(j.location)}</span>` : '';
+    const tagBdgs = (j.tags||[]).slice(0,2)
+      .map(t => `<span class="bdg b-src">${esc(String(t))}</span>`).join('');
+
+    let saveTxt = '⭐ Save', saveCls = 'btn-save';
+    if (applied) { saveTxt = '✅ Applied'; saveCls = 'btn-save app'; }
+    else if (saved) { saveTxt = '⭐ Saved'; saveCls = 'btn-save sv'; }
+
+    const sid = j.id.replace(/[^a-zA-Z0-9_-]/g,'_');
+    return `
+<div class="jcard" id="c-${sid}">
+  <div class="jcard-top">
+    <div class="jtitle" onclick="window.open('${esc(j.url)}','_blank')">${esc(j.title)}</div>
+    ${scoreEl}
+  </div>
+  <div class="jco">${esc(j.company)}</div>
+  <div class="jmeta">${wtBadge}${srcBadge}${locBdg}${tagBdgs}</div>
+  <div class="jsal${hasSal?'':' none'}">${salTxt}</div>
+  ${j.description?`<div class="jdesc">${esc(j.description)}</div>`:''}
+  <div class="jfoot">
+    <span class="jdate">${fmtDate(j.date)}</span>
+    <div class="jacts">
+      <button class="${saveCls}" id="sb-${sid}"
+              onclick="toggleSave('${esc(j.id)}',event)">${saveTxt}</button>
+      <a class="btn-apply" href="${esc(j.url)}" target="_blank" rel="noopener">Apply →</a>
+    </div>
+  </div>
+</div>`;
+  }
+
+  async function toggleSave(jobId, evt) {
+    evt.stopPropagation();
+    const job = allJobs.find(j => j.id === jobId);
+    if (!job) return;
+    const prev = savedMap[jobId];
+    let newStatus = !prev ? 'saved' : prev.status === 'saved' ? 'applied' : null;
+
+    if (newStatus) {
+      savedMap[jobId] = { ...job, status: newStatus };
+      try {
+        await fetch('/api/save', { method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id:job.id, title:job.title, company:job.company,
+            url:job.url, work_type:job.work_type, source:job.source, status:newStatus }) });
+      } catch(e) {}
+      toast(newStatus==='saved' ? '⭐ Saved!' : '✅ Marked as applied!', 'ok');
+    } else {
+      delete savedMap[jobId];
+      try {
+        await fetch('/api/unsave', { method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ id: jobId }) });
+      } catch(e) {}
+      toast('Removed from saved.', 'ok');
+    }
+    const sid = jobId.replace(/[^a-zA-Z0-9_-]/g,'_');
+    const el = document.getElementById(`c-${sid}`);
+    if (el) el.outerHTML = card({ ...job });
+  }
+
+  async function loadSaved() {
+    try {
+      const d = await fetch('/api/saved').then(r => r.json());
+      savedMap = {};
+      (d.jobs||[]).forEach(j => { savedMap[j.id] = j; });
+    } catch(e) {}
+  }
+
+  async function renderTracker(status) {
+    await loadSaved();
+    const gid = status==='saved' ? 'grid-saved' : 'grid-applied';
+    const g = document.getElementById(gid);
+    const jobs = Object.values(savedMap).filter(j => j.status === status);
+    if (!jobs.length) {
+      g.innerHTML = `<div class="empty">
+        <div class="empty-icon">${status==='saved'?'⭐':'✅'}</div>
+        <div class="empty-title">No ${status} jobs yet</div>
+        <div class="empty-sub">${status==='saved'
+          ?'Save jobs from search results.'
+          :'Click Save twice on a job to mark it Applied.'}</div>
+      </div>`;
+      return;
+    }
+    g.innerHTML = jobs.map(j=>`
+<div class="jcard">
+  <div class="jtitle" onclick="window.open('${esc(j.url)}','_blank')">${esc(j.title)}</div>
+  <div class="jco">${esc(j.company)}</div>
+  <div class="jfoot" style="margin-top:8px">
+    <span class="jdate">Saved ${fmtDate(j.created_at)}</span>
+    <a class="btn-apply" href="${esc(j.url)}" target="_blank" rel="noopener">Open →</a>
+  </div>
+</div>`).join('');
+  }
+
+  function updateStats(jobs) {
+    const r = jobs.filter(j=>j.work_type==='remote').length;
+    const h = jobs.filter(j=>j.work_type==='hybrid').length;
+    const l = jobs.filter(j=>j.work_type==='onsite').length;
+    document.getElementById('hs-total').innerHTML = `<b>${jobs.length}</b> jobs found`;
+    const ts = document.getElementById('hs-types');
+    ts.innerHTML = `<b>${r}</b> Remote · <b>${h}</b> Hybrid · <b>${l}</b> Local`;
+    ts.style.display = 'block';
+    document.getElementById('c-all').textContent = jobs.length;
+    document.getElementById('c-rem').textContent = r;
+    document.getElementById('c-rh').textContent  = r+h;
+    document.getElementById('c-loc').textContent = l;
+  }
+
+  function openModal()  { document.getElementById('overlay').classList.add('open'); }
+  function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+  document.getElementById('overlay').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeModal();
+  });
+
+  async function saveConfig() {
+    const email = document.getElementById('cfg-email').value.trim();
+    const key   = document.getElementById('cfg-key').value.trim();
+    try {
+      await fetch('/api/config', { method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ usajobs_email:email, usajobs_api_key:key }) });
+      closeModal();
+      toast('✅ API keys saved!', 'ok');
+      if (email && key) document.getElementById('tip').style.display = 'none';
+    } catch(e) { toast('Failed to save.', 'err'); }
+  }
+
+  let toastTimer;
+  function toast(msg, type='ok') {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = `toast ${type} show`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  document.getElementById('inp-kw').addEventListener('keydown', e => {
+    if (e.key === 'Enter') runSearch();
+  });
+</script>
+</body>
+</html>
