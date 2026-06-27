@@ -126,6 +126,19 @@ _LANG_TITLE  = re.compile(r'\((?:french|spanish|arabic|german|portuguese|mandari
 _FOREIGN_LOC = re.compile(r'\b(bogot|bangalore|india|ireland|dublin|ecuador|quito|peru|lima|brazil|brasil|colombia|cyprus|finland|ukraine|philippines|pakistan|new delhi|lisbon|portugal|romania|metropolitain)\b', re.IGNORECASE)
 _MONTHLY_PAY = re.compile(r'\$\s?\d{3,4}(?:[.,]\d+)?\s?(?:[-–]\s?\$?\d{3,4})?\s?(?:usd)?\s?/\s?month', re.IGNORECASE)
 
+# "Remote" jobs that actually require living in a specific area. Hide them unless that
+# area is California / Pacific / anywhere-in-the-US (i.e. somewhere Midas could take).
+_GEO_RESTRICT = re.compile(
+    r'(\barea only\b|\bresidents? of\b|must (?:reside|live|be located|be based)\b|'
+    r'within \d+\s*miles? of\b|candidates? (?:residing|living|located) in\b|'
+    r'\bonly considering candidates\b|\blocal to\b)', re.IGNORECASE)
+_LOCATION_OK = re.compile(
+    r'\b(california|,\s?ca\b|\bca,|los angeles|san diego|orange county|riverside|'
+    r'san bernardino|inland empire|irvine|anaheim|long beach|pasadena|socal|'
+    r'southern california|west coast|pacific time|\bpst\b|\bpdt\b|'
+    r'united states|u\.s\.a?\.?|\busa\b|nationwide|anywhere in the|'
+    r'work from anywhere|remote \(us\)|all 50 states)\b', re.IGNORECASE)
+
 
 class JobSearcher:
 
@@ -204,6 +217,13 @@ class JobSearcher:
         if _MONTHLY_PAY.search(desc) or 'latam' in desc.lower():
             return True
         return False
+
+    def _geo_locked_elsewhere(self, job):
+        """True if a 'remote' job actually requires living somewhere that isn't CA / Pacific / US-wide."""
+        text = (job.get('title') or '') + ' | ' + (job.get('location') or '') + ' | ' + (job.get('description') or '')
+        if not _GEO_RESTRICT.search(text):
+            return False
+        return not _LOCATION_OK.search(text)
 
     def _fmt_salary(self, lo, hi):
         if lo and hi and lo != hi:
@@ -712,7 +732,7 @@ class JobSearcher:
                 continue
             tags = job.get('tags') or []
             is_gov = any('Government' in str(t) for t in tags)
-            if not is_gov and self._is_noise(job):
+            if not is_gov and (self._is_noise(job) or self._geo_locked_elsewhere(job)):
                 continue
             job['level'] = self._seniority(job)
             if level == 'entry' and job['level'] == 'senior':
