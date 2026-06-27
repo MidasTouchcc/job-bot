@@ -584,20 +584,29 @@ class JobSearcher:
         if not api_key or not email:
             print("  [USAJobs] No API key — skipping. (Add in ⚙️ Settings)")
             return []
-        jobs = []
-        try:
-            r = requests.get(
-                'https://data.usajobs.gov/api/Search',
-                params={'Keyword': keywords, 'LocationName': location,
-                        'ResultsPerPage': 25, 'Fields': 'Min'},
-                headers={'Authorization-Key': api_key, 'User-Agent': email,
-                         'Host': 'data.usajobs.gov'},
-                timeout=15
-            )
-            data = r.json()
-            items = (data.get('SearchResult') or {}).get('SearchResultItems') or []
+        headers = {'Authorization-Key': api_key, 'User-Agent': email, 'Host': 'data.usajobs.gov'}
+        # USAJobs ANDs a long Keyword string (→ 0 results), so query a few short terms
+        # separately and widen the search with a 75-mile radius around the location.
+        terms = [t for t in keywords.split() if len(t) > 2][:4] or ['']
+        jobs, seen = [], set()
+        for term in terms:
+            try:
+                r = requests.get(
+                    'https://data.usajobs.gov/api/Search',
+                    params={'Keyword': term, 'LocationName': location, 'Radius': 75,
+                            'ResultsPerPage': 25, 'Fields': 'Min'},
+                    headers=headers, timeout=15
+                )
+                items = (r.json().get('SearchResult') or {}).get('SearchResultItems') or []
+            except Exception as e:
+                print(f"  [USAJobs] {e}")
+                continue
             for item in items:
                 pos = item.get('MatchedObjectDescriptor') or {}
+                pid = pos.get('PositionID', '')
+                if pid in seen:
+                    continue
+                seen.add(pid)
                 work_type = 'onsite'
                 tele = (pos.get('TeleworkSchedule') or '').lower()
                 if 'full' in tele:
@@ -615,7 +624,7 @@ class JobSearcher:
                     sal_min, sal_max = sal_min * 2080, sal_max * 2080
                 detail = ((pos.get('UserArea') or {}).get('Details') or {})
                 jobs.append({
-                    'id': f"usajobs_{pos.get('PositionID', '')}",
+                    'id': f"usajobs_{pid}",
                     'title': pos.get('PositionTitle') or '',
                     'company': pos.get('OrganizationName') or pos.get('DepartmentName') or '',
                     'location': pos.get('PositionLocationDisplay') or location,
@@ -629,8 +638,6 @@ class JobSearcher:
                     'source': 'USAJobs (Federal)',
                     'date': pos.get('PublicationStartDate') or ''
                 })
-        except Exception as e:
-            print(f"  [USAJobs] {e}")
         return jobs
 
     # ── Main ─────────────────────────────────────────────────────────────────
