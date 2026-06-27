@@ -27,7 +27,7 @@ def index(): return render_template('index.html')
 
 @app.route('/api/search')
 def search():
-    kw  = request.args.get('keywords', 'operations trader data analyst financial admin')
+    kw  = request.args.get('keywords', 'software developer python automation ai data analyst operations')
     wt  = request.args.get('work_type', 'remote,hybrid,all')
     sal = int(request.args.get('min_salary', 60000))
     jobs = JobSearcher().search_all(kw, 'Riverside, CA', sal, wt)

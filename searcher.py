@@ -1,6 +1,7 @@
 """
 searcher.py — Job search engine for Andre's Job Bot
-Sources: RemoteOK, Jobicy, Arbeitnow, Craigslist IE, Riverside Gov, USAJobs
+Sources: RemoteOK, Jobicy, We Work Remotely, Remotive, The Muse,
+         Craigslist (IE/LA/OC), SoCal Government RSS feeds, USAJobs
 """
 
 import requests
@@ -8,40 +9,110 @@ import json
 import os
 import re
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# ─── Andre's full skill profile (operations + trading) ─────────────────────────
+# ─── Andre's full capability profile ────────────────────────────────────────────
 ANDRE_SKILLS = [
-    # Operations / Admin / Logistics
-    'operations', 'logistics', 'data analyst', 'data analysis', 'admin',
-    'coordinator', 'management', 'sql', 'excel', 'google workspace',
-    'google sheets', 'spreadsheet', 'database', 'supply chain', 'warehouse',
-    'transportation', 'property', 'real estate', 'process improvement',
-    'workflow', 'automation', 'reporting', 'variance', 'inventory',
-    'project management', 'microsoft office', 'customer service', 'accounting',
-    'budget', 'financial records', 'records management', 'data entry',
-    'acquisition', 'research', 'sqlite', 'e-commerce', 'tms',
-    'transportation management', 'linehaul', 'dispatch', 'auditing',
+    # Software / AI / Automation  (PRIMARY target — Self-Taught Developer & AI Builder)
+    'software', 'software engineer', 'software developer', 'software engineering',
+    'developer', 'web developer', 'application developer', 'junior developer',
+    'junior software engineer', 'entry level developer', 'associate developer',
+    'frontend', 'front end', 'front-end', 'backend', 'back end',
+    'full stack', 'full-stack', 'engineer', 'programmer', 'coding', 'scripting',
+    'python', 'javascript', 'typescript', 'html', 'css', 'react', 'node', 'node.js',
+    'api', 'rest api', 'git', 'github', 'flask', 'pine script',
+    'linux', 'ssh', 'vps', 'cloud', 'devops',
+    'ai', 'artificial intelligence', 'machine learning', 'llm', 'generative ai', 'gen ai',
+    'ai engineer', 'prompt engineering', 'ai agent', 'agentic', 'chatbot',
+    'automation engineer', 'rpa', 'integration', 'no-code', 'low-code', 'data engineer',
 
-    # Trading / Finance
-    'trader', 'trading', 'day trader', 'day trading', 'prop trader',
-    'proprietary trading', 'technical analysis', 'technical analyst',
-    'support resistance', 'chart analysis', 'charting', 'tradingview',
-    'market analysis', 'market analyst', 'financial analyst', 'fintech',
-    'brokerage', 'investment', 'equities', 'futures', 'forex', 'options',
-    'risk management', 'risk analyst', 'trading psychology', 'trading education',
-    'trading coach', 'trading mentor', 'trading operations', 'trading desk',
-    'securities', 'stock market', 'capital markets', 'hedge fund',
-    'algo trading', 'algorithmic trading', 'quantitative', 'portfolio',
-    'wealth management', 'financial services', 'trading platform',
-    'trading software', 'market maker', 'order flow'
+    # Operations / Logistics / Management (core FedEx background)
+    'operations', 'operations manager', 'operations coordinator',
+    'operations supervisor', 'operations analyst', 'operations specialist',
+    'operations lead', 'operations director',
+    'logistics', 'logistics manager', 'logistics coordinator', 'logistics analyst',
+    'logistics supervisor', 'logistics director',
+    'transportation', 'transportation manager', 'transportation coordinator',
+    'transportation analyst', 'transportation supervisor', 'transportation director',
+    'fleet', 'fleet manager', 'fleet coordinator', 'fleet operations', 'fleet management',
+    'supply chain', 'supply chain manager', 'supply chain analyst',
+    'supply chain coordinator', 'supply chain specialist',
+    'distribution', 'distribution manager', 'distribution coordinator',
+    'warehouse', 'warehouse manager', 'warehouse operations', 'warehouse coordinator',
+    'warehouse supervisor',
+    'dispatch', 'dispatch manager', 'dispatch coordinator', 'dispatcher',
+    'linehaul', 'freight', 'shipping', 'receiving', 'tms',
+    'transportation management system', 'transportation management',
+    'facilities', 'facility manager', 'facility coordinator', 'facility operations',
+
+    # Admin / Business Operations
+    'admin', 'administrator', 'administrative manager', 'administrative coordinator',
+    'office manager', 'office coordinator', 'office administrator',
+    'business operations', 'business analyst', 'business coordinator',
+    'coordinator', 'project coordinator', 'project manager', 'project administrator',
+    'program manager', 'program coordinator', 'program administrator',
+    'operations lead', 'team lead', 'supervisor', 'manager', 'director',
+    'planning', 'scheduler', 'scheduling',
+    'compliance', 'auditing', 'quality assurance', 'safety manager',
+    'procurement', 'vendor management', 'contract management',
+
+    # Data / Analytics / Tech
+    'data analyst', 'data analysis', 'data coordinator', 'data manager',
+    'reporting', 'sql', 'excel', 'google workspace', 'google sheets',
+    'spreadsheet', 'database', 'sqlite', 'dashboard', 'metrics',
+    'process improvement', 'workflow', 'automation', 'variance analysis',
+    'inventory', 'records management', 'microsoft office', 'data entry',
+    'business intelligence', 'reporting analyst',
+
+    # Customer / Account / Support
+    'customer service', 'customer success', 'customer operations',
+    'customer experience', 'client relations', 'client success',
+    'account manager', 'account coordinator', 'account executive',
+    'client coordinator', 'customer support', 'support manager',
+
+    # Real Estate / Property
+    'property', 'real estate', 'acquisitions', 'acquisition',
+    'property management', 'asset management', 'research', 'title',
+
+    # Finance / Trading / Risk
+    'trader', 'trading', 'day trader', 'financial analyst', 'fintech',
+    'brokerage', 'investment', 'equities', 'futures', 'risk management',
+    'risk analyst', 'technical analysis', 'market analysis', 'market analyst',
+    'trading platform', 'trading operations', 'trading desk',
+    'securities', 'capital markets', 'quantitative', 'portfolio',
+    'wealth management', 'financial services', 'budget', 'budgeting',
+    'accounting', 'financial records', 'variance', 'bookkeeping',
 ]
 
-# ─── Keyword presets for quick search ──────────────────────────────────────────
+# ─── Keyword presets ─────────────────────────────────────────────────────────────
 PRESETS = {
-    'ops':     'operations data analyst admin coordinator logistics',
-    'trading': 'trader trading analyst fintech financial analyst market analyst risk',
-    'both':    'operations trader data analyst financial admin coordinator trading'
+    'dev': (
+        'software developer engineer python javascript html css react '
+        'junior developer web developer full stack ai automation data analyst'
+    ),
+    'ops': (
+        'operations manager logistics coordinator transportation fleet '
+        'supply chain warehouse dispatcher office manager project coordinator '
+        'supervisor administrator business operations'
+    ),
+    'trading': (
+        'trader trading analyst fintech financial analyst market analyst '
+        'risk management brokerage investment securities futures capital markets'
+    ),
+    'both': (
+        'operations logistics transportation coordinator manager supervisor '
+        'trader trading financial supply chain fleet dispatch administrator '
+        'business operations analyst'
+    ),
 }
+
+
+# Whole-word matcher built once from the skill list (longest phrases first so
+# "software engineer" wins over "software"). \b avoids false hits like "ai" in "email".
+_SKILL_RE = re.compile(
+    r'\b(' + '|'.join(re.escape(s) for s in sorted(set(ANDRE_SKILLS), key=len, reverse=True)) + r')\b',
+    re.IGNORECASE,
+)
 
 
 class JobSearcher:
@@ -86,13 +157,13 @@ class JobSearcher:
         return min(nums), max(nums)
 
     def _score_job(self, job):
-        text = (
-            (job.get('title') or '') + ' ' +
-            (job.get('description') or '') + ' ' +
-            ' '.join(job.get('tags') or [])
-        ).lower()
-        hits = sum(1 for s in ANDRE_SKILLS if s in text)
-        return min(int(hits / len(ANDRE_SKILLS) * 220), 100)
+        title = job.get('title') or ''
+        body  = (job.get('description') or '') + ' ' + ' '.join(job.get('tags') or [])
+        title_hits = {m.lower() for m in _SKILL_RE.findall(title)}
+        body_hits  = {m.lower() for m in _SKILL_RE.findall(body)} - title_hits
+        # Title matches matter most; body adds supporting signal.
+        raw = len(title_hits) * 14 + len(body_hits) * 4
+        return max(0, min(raw, 100))
 
     def _fmt_salary(self, lo, hi):
         if lo and hi and lo != hi:
@@ -128,7 +199,7 @@ class JobSearcher:
                     'id': f"remoteok_{job.get('id', '')}",
                     'title': title,
                     'company': job.get('company') or '',
-                    'location': 'Remote',
+                    'location': 'Remote (US)',
                     'work_type': 'remote',
                     'salary_min': sal_min,
                     'salary_max': sal_max,
@@ -143,7 +214,7 @@ class JobSearcher:
             print(f"  [RemoteOK] {e}")
         return jobs
 
-    # ── Source: Jobicy ───────────────────────────────────────────────────────
+    # ── Source: Jobicy (USA only) ────────────────────────────────────────────
 
     def search_jobicy(self, keywords):
         jobs = []
@@ -168,7 +239,7 @@ class JobSearcher:
                     'id': f"jobicy_{job.get('id', '')}",
                     'title': title,
                     'company': job.get('companyName') or '',
-                    'location': 'Remote',
+                    'location': 'Remote (US)',
                     'work_type': 'remote',
                     'salary_min': sal_min,
                     'salary_max': sal_max,
@@ -183,44 +254,190 @@ class JobSearcher:
             print(f"  [Jobicy] {e}")
         return jobs
 
-    # ── Source: Arbeitnow ────────────────────────────────────────────────────
+    # ── Source: We Work Remotely ─────────────────────────────────────────────
 
-    def search_arbeitnow(self, keywords):
+    def search_weworkremotely(self, keywords):
+        """RSS feeds — US-focused, high-quality remote jobs."""
         jobs = []
         kw_list = keywords.lower().split()
-        try:
-            r = requests.get('https://www.arbeitnow.com/api/job-board-api', timeout=15)
-            data = r.json()
-            for job in data.get('data') or []:
-                title = job.get('title') or ''
-                desc  = job.get('description') or ''
-                combined = (title + ' ' + desc).lower()
-                if not any(k in combined for k in kw_list):
+        feeds = [
+            ('https://weworkremotely.com/categories/remote-programming-jobs.rss',
+             'Programming / Engineering'),
+            ('https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss',
+             'DevOps / Sysadmin'),
+            ('https://weworkremotely.com/categories/remote-back-office.rss',
+             'Back Office / Operations'),
+            ('https://weworkremotely.com/categories/remote-management-finance.rss',
+             'Management & Finance'),
+            ('https://weworkremotely.com/categories/remote-customer-support-jobs.rss',
+             'Customer Support / Success'),
+        ]
+        for feed_url, category in feeds:
+            try:
+                r = requests.get(
+                    feed_url,
+                    headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
+                    timeout=15
+                )
+                root = ET.fromstring(r.content)
+                channel = root.find('channel')
+                if channel is None:
                     continue
-                is_remote = bool(job.get('remote'))
-                jobs.append({
-                    'id': f"arbeitnow_{job.get('slug', '')}",
-                    'title': title,
-                    'company': job.get('company_name') or '',
-                    'location': 'Remote' if is_remote else (job.get('location') or ''),
-                    'work_type': 'remote' if is_remote else 'onsite',
-                    'salary_min': 0,
-                    'salary_max': 0,
-                    'salary_display': 'Not listed',
-                    'url': job.get('url') or '',
-                    'description': self._clean_html(desc),
-                    'tags': list(job.get('tags') or []),
-                    'source': 'Arbeitnow',
-                    'date': str(job.get('created_at') or '')
-                })
-        except Exception as e:
-            print(f"  [Arbeitnow] {e}")
+                for item in channel.findall('item'):
+                    title = (item.findtext('title') or '').replace('\n', ' ').strip()
+                    link  = item.findtext('link') or ''
+                    desc  = item.findtext('{http://www.w3.org/2005/Atom}summary') or \
+                            item.findtext('description') or ''
+                    date  = item.findtext('pubDate') or ''
+                    if not title or not link:
+                        continue
+                    combined = (title + ' ' + self._clean_html(desc)).lower()
+                    if kw_list and not any(k in combined for k in kw_list):
+                        continue
+                    sal_min, sal_max = self._parse_salary_from_text(combined)
+                    jobs.append({
+                        'id': f"wwr_{hash(link) & 0xFFFFFFFF}",
+                        'title': title,
+                        'company': '',
+                        'location': 'Remote (US)',
+                        'work_type': 'remote',
+                        'salary_min': sal_min,
+                        'salary_max': sal_max,
+                        'salary_display': self._fmt_salary(sal_min, sal_max),
+                        'url': link,
+                        'description': self._clean_html(desc),
+                        'tags': ['🌎 Remote', category],
+                        'source': 'We Work Remotely',
+                        'date': date
+                    })
+            except Exception as e:
+                print(f"  [WeWorkRemotely - {category}] {e}")
         return jobs
 
-    # ── Source: Local Government (Riverside) ─────────────────────────────────
+    # ── Source: Remotive ─────────────────────────────────────────────────────
+
+    def search_remotive(self, keywords):
+        """Remotive.com — curated US-friendly remote jobs, no key needed."""
+        jobs = []
+        kw_list = keywords.lower().split()
+        categories = [
+            'software-dev', 'devops', 'data', 'operations', 'finance-legal',
+            'business-development', 'customer-support', 'human-resources'
+        ]
+        seen_ids = set()
+        for cat in categories:
+            try:
+                r = requests.get(
+                    'https://remotive.com/api/remote-jobs',
+                    params={'category': cat, 'limit': 20},
+                    headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
+                    timeout=15
+                )
+                if r.status_code != 200:
+                    continue
+                data = r.json()
+                for job in data.get('jobs') or []:
+                    job_id = f"remotive_{job.get('id', '')}"
+                    if job_id in seen_ids:
+                        continue
+                    seen_ids.add(job_id)
+                    title   = job.get('title') or ''
+                    desc    = job.get('description') or ''
+                    company = job.get('company_name') or ''
+                    combined = (title + ' ' + self._clean_html(desc) + ' ' + company).lower()
+                    if kw_list and not any(k in combined for k in kw_list):
+                        continue
+                    sal_text = job.get('salary') or ''
+                    sal_min, sal_max = self._parse_salary_from_text(sal_text)
+                    jobs.append({
+                        'id': job_id,
+                        'title': title,
+                        'company': company,
+                        'location': 'Remote (US)',
+                        'work_type': 'remote',
+                        'salary_min': sal_min,
+                        'salary_max': sal_max,
+                        'salary_display': (self._fmt_salary(sal_min, sal_max)
+                                           if (sal_min or sal_max) else (sal_text or 'Not listed')),
+                        'url': job.get('url') or '',
+                        'description': self._clean_html(desc),
+                        'tags': [job.get('job_type') or 'Full-time', '🌎 Remote'],
+                        'source': 'Remotive',
+                        'date': str(job.get('publication_date') or '')
+                    })
+            except Exception as e:
+                print(f"  [Remotive - {cat}] {e}")
+        return jobs
+
+    # ── Source: The Muse ─────────────────────────────────────────────────────
+
+    def search_muse(self, keywords):
+        """The Muse — top companies with great benefits, no key needed."""
+        jobs = []
+        kw_list = keywords.lower().split()
+        searches = [
+            ('Software Engineering', 'Flexible / Remote'),
+            ('Data Science', 'Flexible / Remote'),
+            ('Computer and IT', 'Flexible / Remote'),
+            ('Data & Analytics', 'Flexible / Remote'),
+            ('Operations', 'Flexible / Remote'),
+            ('Business Operations', 'Flexible / Remote'),
+            ('Customer Service', 'Flexible / Remote'),
+            ('Finance', 'Flexible / Remote'),
+        ]
+        seen_ids = set()
+        for cat, loc in searches:
+            try:
+                r = requests.get(
+                    'https://www.themuse.com/api/public/jobs',
+                    params={'category': cat, 'location': loc, 'page': 0},
+                    headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
+                    timeout=15
+                )
+                if r.status_code != 200:
+                    continue
+                data = r.json()
+                for job in data.get('results') or []:
+                    job_id = f"muse_{job.get('id', '')}"
+                    if job_id in seen_ids:
+                        continue
+                    seen_ids.add(job_id)
+                    title   = job.get('name') or ''
+                    company = (job.get('company') or {}).get('name') or ''
+                    url     = (job.get('refs') or {}).get('landing_page') or ''
+                    locs    = [l.get('name', '') for l in (job.get('locations') or [])]
+                    loc_str = ', '.join(locs) if locs else 'Remote'
+                    desc    = self._clean_html(job.get('contents') or '')
+                    combined = (title + ' ' + desc + ' ' + company).lower()
+                    if kw_list and not any(k in combined for k in kw_list):
+                        continue
+                    sal_min, sal_max = self._parse_salary_from_text(desc)
+                    is_remote = any('remote' in l.lower() or 'flexible' in l.lower()
+                                    for l in locs)
+                    jobs.append({
+                        'id': job_id,
+                        'title': title,
+                        'company': company,
+                        'location': loc_str,
+                        'work_type': 'remote' if is_remote else 'hybrid',
+                        'salary_min': sal_min,
+                        'salary_max': sal_max,
+                        'salary_display': self._fmt_salary(sal_min, sal_max),
+                        'url': url,
+                        'description': desc,
+                        'tags': ['⭐ Top Company', '💰 Great Benefits', cat],
+                        'source': 'The Muse',
+                        'date': str(job.get('updated_at') or '')
+                    })
+            except Exception as e:
+                print(f"  [The Muse - {cat}] {e}")
+        return jobs
+
+    # ── Source: SoCal Government (within ~55 mi of Riverside) ────────────────
 
     def search_local_government(self):
         feeds = [
+            # Riverside area
             ('https://www.governmentjobs.com/careers/riversideca/rss/alljobs',
              'City of Riverside', 'Riverside, CA'),
             ('https://www.governmentjobs.com/careers/countyofriverside/rss/alljobs',
@@ -231,6 +448,18 @@ class JobSearcher:
              'Riverside Unified School District', 'Riverside, CA'),
             ('https://www.governmentjobs.com/careers/rcoe/rss/alljobs',
              'Riverside County Office of Education', 'Riverside, CA'),
+            # San Bernardino area
+            ('https://www.governmentjobs.com/careers/sanbernardino/rss/alljobs',
+             'City of San Bernardino', 'San Bernardino, CA'),
+            ('https://www.governmentjobs.com/careers/sbcounty/rss/alljobs',
+             'San Bernardino County', 'San Bernardino, CA'),
+            # Inland Empire cities
+            ('https://www.governmentjobs.com/careers/ontario/rss/alljobs',
+             'City of Ontario', 'Ontario, CA'),
+            ('https://www.governmentjobs.com/careers/fontana/rss/alljobs',
+             'City of Fontana', 'Fontana, CA'),
+            ('https://www.governmentjobs.com/careers/corona/rss/alljobs',
+             'City of Corona', 'Corona, CA'),
         ]
         jobs = []
         for url, agency, loc in feeds:
@@ -263,7 +492,7 @@ class JobSearcher:
                         'salary_display': self._fmt_salary(sal_min, sal_max),
                         'url': link,
                         'description': self._clean_html(desc),
-                        'tags': ['🏛️ Local Government'],
+                        'tags': ['🏛️ Government', '📍 Local', '💰 Great Benefits'],
                         'source': agency,
                         'date': date
                     })
@@ -271,56 +500,63 @@ class JobSearcher:
                 print(f"  [{agency}] {e}")
         return jobs
 
-    # ── Source: Craigslist Inland Empire ─────────────────────────────────────
+    # ── Source: Craigslist (IE + LA + OC) ────────────────────────────────────
 
     def search_craigslist(self, keywords):
         jobs = []
         kw_encoded = requests.utils.quote(keywords)
-        url = f'https://inlandempire.craigslist.org/search/jjj?query={kw_encoded}&format=rss'
-        try:
-            r = requests.get(
-                url,
-                headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
-                timeout=15
-            )
-            root = ET.fromstring(r.content)
-            items = (
-                root.findall('{http://purl.org/rss/1.0/}item') or
-                root.findall('.//item')
-            )
-            for item in items[:25]:
-                def txt(tag):
-                    return (
-                        item.findtext(f'{{http://purl.org/rss/1.0/}}{tag}') or
-                        item.findtext(f'{{http://purl.org/dc/elements/1.1/}}{tag}') or
-                        item.findtext(tag) or ''
-                    ).strip()
-                title = txt('title')
-                link  = txt('link')
-                desc  = txt('description') or txt('summary')
-                date  = txt('date') or txt('pubDate')
-                if not title or not link:
-                    continue
-                sal_min, sal_max = self._parse_salary_from_text(title + ' ' + desc)
-                lower = (title + desc).lower()
-                work_type = 'remote' if 'remote' in lower else ('hybrid' if 'hybrid' in lower else 'onsite')
-                jobs.append({
-                    'id': f"cl_{hash(link) & 0xFFFFFFFF}",
-                    'title': title,
-                    'company': 'Local Business (Craigslist)',
-                    'location': 'Inland Empire, CA',
-                    'work_type': work_type,
-                    'salary_min': sal_min,
-                    'salary_max': sal_max,
-                    'salary_display': self._fmt_salary(sal_min, sal_max),
-                    'url': link,
-                    'description': self._clean_html(desc),
-                    'tags': ['📍 Local', '🏢 Small Business'],
-                    'source': 'Craigslist IE',
-                    'date': date
-                })
-        except Exception as e:
-            print(f"  [Craigslist IE] {e}")
+        areas = [
+            ('inlandempire', 'Inland Empire, CA'),
+            ('losangeles',   'Los Angeles, CA'),
+            ('orangecounty', 'Orange County, CA'),
+        ]
+        for subdomain, area_label in areas:
+            url = f'https://{subdomain}.craigslist.org/search/jjj?query={kw_encoded}&format=rss'
+            try:
+                r = requests.get(
+                    url,
+                    headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
+                    timeout=15
+                )
+                root = ET.fromstring(r.content)
+                items = (
+                    root.findall('{http://purl.org/rss/1.0/}item') or
+                    root.findall('.//item')
+                )
+                for item in items[:20]:
+                    def txt(tag, _item=item):
+                        return (
+                            _item.findtext(f'{{http://purl.org/rss/1.0/}}{tag}') or
+                            _item.findtext(f'{{http://purl.org/dc/elements/1.1/}}{tag}') or
+                            _item.findtext(tag) or ''
+                        ).strip()
+                    title = txt('title')
+                    link  = txt('link')
+                    desc  = txt('description') or txt('summary')
+                    date  = txt('date') or txt('pubDate')
+                    if not title or not link:
+                        continue
+                    sal_min, sal_max = self._parse_salary_from_text(title + ' ' + desc)
+                    lower = (title + desc).lower()
+                    work_type = ('remote' if 'remote' in lower else
+                                 'hybrid' if 'hybrid' in lower else 'onsite')
+                    jobs.append({
+                        'id': f"cl_{hash(link) & 0xFFFFFFFF}",
+                        'title': title,
+                        'company': f'({area_label})',
+                        'location': area_label,
+                        'work_type': work_type,
+                        'salary_min': sal_min,
+                        'salary_max': sal_max,
+                        'salary_display': self._fmt_salary(sal_min, sal_max),
+                        'url': link,
+                        'description': self._clean_html(desc),
+                        'tags': ['📍 Local SoCal'],
+                        'source': f'Craigslist {area_label.split(",")[0]}',
+                        'date': date
+                    })
+            except Exception as e:
+                print(f"  [Craigslist {area_label}] {e}")
         return jobs
 
     # ── Source: USAJobs (Federal — optional) ─────────────────────────────────
@@ -372,7 +608,7 @@ class JobSearcher:
                     'salary_display': self._fmt_salary(sal_min, sal_max),
                     'url': pos.get('PositionURI') or '',
                     'description': self._clean_html(detail.get('JobSummary') or ''),
-                    'tags': ['🏛️ Federal Government'],
+                    'tags': ['🏛️ Federal Government', '💰 Great Benefits'],
                     'source': 'USAJobs (Federal)',
                     'date': pos.get('PublicationStartDate') or ''
                 })
@@ -385,19 +621,28 @@ class JobSearcher:
     def search_all(self, keywords, location, min_salary, work_type_filter):
         print(f"\n🔍 '{keywords}' | {location} | ${min_salary:,}+ | {work_type_filter}\n")
 
+        # All sources run concurrently — total time ≈ the slowest source, not the sum.
+        tasks = {
+            'RemoteOK':         lambda: self.search_remoteok(keywords),
+            'Jobicy':           lambda: self.search_jobicy(keywords),
+            'We Work Remotely': lambda: self.search_weworkremotely(keywords),
+            'Remotive':         lambda: self.search_remotive(keywords),
+            'The Muse':         lambda: self.search_muse(keywords),
+            'SoCal Government': self.search_local_government,
+            'Craigslist':       lambda: self.search_craigslist(keywords),
+            'USAJobs':          lambda: self.search_usajobs(keywords, location),
+        }
         all_jobs = []
-        print("  ↳ RemoteOK...")
-        all_jobs.extend(self.search_remoteok(keywords))
-        print("  ↳ Jobicy...")
-        all_jobs.extend(self.search_jobicy(keywords))
-        print("  ↳ Arbeitnow...")
-        all_jobs.extend(self.search_arbeitnow(keywords))
-        print("  ↳ Riverside Gov...")
-        all_jobs.extend(self.search_local_government())
-        print("  ↳ Craigslist IE...")
-        all_jobs.extend(self.search_craigslist(keywords))
-        print("  ↳ USAJobs...")
-        all_jobs.extend(self.search_usajobs(keywords, location))
+        with ThreadPoolExecutor(max_workers=len(tasks)) as ex:
+            futures = {ex.submit(fn): name for name, fn in tasks.items()}
+            for fut in as_completed(futures):
+                name = futures[fut]
+                try:
+                    res = fut.result()
+                    print(f"  ✓ {name}: {len(res)}")
+                    all_jobs.extend(res)
+                except Exception as e:
+                    print(f"  ✗ {name}: {e}")
 
         print(f"   Raw total: {len(all_jobs)}")
 

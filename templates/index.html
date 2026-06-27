@@ -59,6 +59,7 @@
     .chip { font-size:10px; padding:2px 7px; border-radius:10px; }
     .chip-ops  { background:#1e3a5f; color:var(--blue); }
     .chip-trade{ background:#1a2e1a; color:var(--teal); }
+    .chip-dev  { background:#2a1e3f; color:var(--purple); }
 
     /* Preset buttons */
     .preset-row { display:flex; gap:5px; }
@@ -233,7 +234,7 @@
     <span class="logo-icon">🔍</span>
     <div>
       <div class="logo-title">Andre's Job Bot</div>
-      <div class="logo-sub">Riverside, CA · Remote-first · $60k+ · Operations &amp; Trading</div>
+      <div class="logo-sub">Riverside, CA · Remote-first · $60k+ · AI / Dev · Ops · Trading</div>
     </div>
   </div>
   <div class="header-r">
@@ -254,22 +255,19 @@
       <div class="sb-lbl">Your Profile</div>
       <div class="profile-card">
         <div class="p-name">Andre Charles</div>
-        <div class="p-role">Operations · Admin · Data · Real Estate · Day Trader</div>
+        <div class="p-role">Self-Taught Developer &amp; AI Builder · Ops · Data · Trader</div>
         <div class="skill-wrap">
-          <span class="chip chip-ops">SQL</span>
-          <span class="chip chip-ops">Excel</span>
-          <span class="chip chip-ops">Logistics</span>
+          <span class="chip chip-dev">🤖 AI Agents</span>
+          <span class="chip chip-dev">Automation</span>
+          <span class="chip chip-dev">Python</span>
+          <span class="chip chip-dev">HTML / CSS</span>
+          <span class="chip chip-dev">Linux / VPS</span>
+          <span class="chip chip-dev">Pine Script</span>
           <span class="chip chip-ops">Data Analysis</span>
-          <span class="chip chip-ops">Admin</span>
+          <span class="chip chip-ops">Operations</span>
           <span class="chip chip-ops">Google Workspace</span>
-          <span class="chip chip-ops">Real Estate</span>
-          <span class="chip chip-trade">📈 Day Trader</span>
-          <span class="chip chip-trade">Technical Analysis</span>
-          <span class="chip chip-trade">Support &amp; Resistance</span>
+          <span class="chip chip-trade">📈 Trading</span>
           <span class="chip chip-trade">Risk Management</span>
-          <span class="chip chip-trade">Trading Psychology</span>
-          <span class="chip chip-trade">TradingView</span>
-          <span class="chip chip-trade">3 yrs Experience</span>
         </div>
       </div>
     </div>
@@ -278,15 +276,17 @@
     <div class="sb-sec">
       <div class="sb-lbl">Search Mode</div>
       <div class="preset-row" style="margin-bottom:8px">
+        <button class="preset-btn active" data-preset="dev"
+          onclick="usePreset(this,'dev')">💻 Dev/AI</button>
         <button class="preset-btn" data-preset="ops"
-          onclick="usePreset(this,'ops')">💼 Ops/Admin</button>
-        <button class="preset-btn active" data-preset="both"
-          onclick="usePreset(this,'both')">🌐 Both</button>
+          onclick="usePreset(this,'ops')">💼 Ops</button>
         <button class="preset-btn" data-preset="trading"
           onclick="usePreset(this,'trading')">📈 Trading</button>
+        <button class="preset-btn" data-preset="both"
+          onclick="usePreset(this,'both')">🌐 All</button>
       </div>
       <input class="srch-in" id="inp-kw"
-        value="operations trader data analyst financial admin coordinator trading"
+        value="software developer engineer python javascript html css react junior developer web developer full stack ai automation data analyst"
         placeholder="Or type custom keywords...">
     </div>
 
@@ -356,9 +356,9 @@
         <div class="empty-icon">🔍</div>
         <div class="empty-title">Ready to find your next opportunity</div>
         <div class="empty-sub">
-          Choose a <strong>Search Mode</strong> above — Ops/Admin, Trading, or Both —
-          then click <strong>Search Jobs</strong>. I'll scan RemoteOK, Jobicy, Arbeitnow,
-          Craigslist Inland Empire, Riverside City &amp; County, and USAJobs all at once.
+          Choose a <strong>Search Mode</strong> above — Dev/AI, Ops, Trading, or All —
+          then click <strong>Search Jobs</strong>. I'll scan RemoteOK, Jobicy, We Work Remotely,
+          Remotive, The Muse, SoCal government feeds, Craigslist, and USAJobs all at once.
         </div>
       </div>
       <div class="loading" id="loader" style="display:none">
@@ -415,9 +415,10 @@
 
 <script>
   const PRESETS = {
+    dev:     'software developer engineer python javascript html css react junior developer web developer full stack ai automation data analyst',
     ops:     'operations data analyst admin coordinator logistics',
     trading: 'trader trading analyst fintech financial analyst market analyst risk management',
-    both:    'operations trader data analyst financial admin coordinator trading'
+    both:    'developer software ai automation operations data analyst coordinator'
   };
 
   let allJobs  = [];
@@ -485,9 +486,10 @@
     document.getElementById('hs-types').style.display = 'none';
 
     const msgs = [
-      'Scanning RemoteOK…', 'Checking Jobicy…', 'Querying Arbeitnow…',
-      'Fetching Riverside City & County jobs…', 'Reading Craigslist Inland Empire…',
-      'Checking USAJobs (Federal)…', 'Scoring results against your profile…'
+      'Scanning RemoteOK…', 'Checking Jobicy…', 'Reading We Work Remotely…',
+      'Querying Remotive…', 'Browsing The Muse…', 'Fetching SoCal government jobs…',
+      'Reading Craigslist (IE / LA / OC)…', 'Checking USAJobs (Federal)…',
+      'Scoring results against your profile…'
     ];
     let mi = 0;
     const iv = setInterval(() => {

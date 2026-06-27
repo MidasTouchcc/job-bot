@@ -1,0 +1,10 @@
+# Secrets & local data — never commit these
+config.json
+jobs.db
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
