@@ -115,9 +115,16 @@ _SKILL_RE = re.compile(
 )
 
 # Seniority signals (used to surface junior / entry-friendly roles).
-_SENIOR_RE = re.compile(r'\b(senior|sr\.?|lead|principal|director|vp|vice president|head of|architect|chief|manager|mgr|supervisor)\b', re.IGNORECASE)
+_SENIOR_RE = re.compile(r'\b(senior|sr\.?|lead|principal|director|vp|vice president|head of|architect|chief|manager|mgr|supervisor|supervisory|deputy administrator)\b', re.IGNORECASE)
 _JUNIOR_RE = re.compile(r'\b(junior|jr\.?|entry[\s-]?level|entry|associate|apprentice|trainee|intern|internship|graduate)\b', re.IGNORECASE)
 _YEARS_RE  = re.compile(r'(\d{1,2})\s*\+?\s*(?:years|yrs)\b', re.IGNORECASE)
+
+# Low-quality / off-market filler to drop (foreign-market gigs, data-labeling mills, monthly micro-pay).
+_NOISE_COMPANIES = {'telus digital', 'workada'}
+_NOISE_TITLE = re.compile(r'\b(data partner|data label|online data analyst|labeling specialist)\b', re.IGNORECASE)
+_LANG_TITLE  = re.compile(r'\((?:french|spanish|arabic|german|portuguese|mandarin|hindi)\b|spanish speakers', re.IGNORECASE)
+_FOREIGN_LOC = re.compile(r'\b(bogot|bangalore|india|ireland|dublin|ecuador|quito|peru|lima|brazil|brasil|colombia|cyprus|finland|ukraine|philippines|pakistan|new delhi|lisbon|portugal|romania|metropolitain)\b', re.IGNORECASE)
+_MONTHLY_PAY = re.compile(r'\$\s?\d{3,4}(?:[.,]\d+)?\s?(?:[-–]\s?\$?\d{3,4})?\s?(?:usd)?\s?/\s?month', re.IGNORECASE)
 
 
 class JobSearcher:
@@ -177,10 +184,26 @@ class JobSearcher:
             return 'entry'
         if _SENIOR_RE.search(title):
             return 'senior'
+        if (job.get('salary_min') or 0) >= 100000:   # $100k+ ≈ not an entry-level role
+            return 'senior'
         yrs = [int(m) for m in _YEARS_RE.findall(job.get('description') or '')]
         if yrs and max(yrs) >= 5:
             return 'senior'
         return 'open'
+
+    def _is_noise(self, job):
+        """Filler we don't want: data-labeling gigs, foreign-market roles, monthly micro-pay."""
+        if (job.get('company') or '').strip().lower() in _NOISE_COMPANIES:
+            return True
+        title = job.get('title') or ''
+        if _NOISE_TITLE.search(title) or _LANG_TITLE.search(title):
+            return True
+        if _FOREIGN_LOC.search(job.get('location') or ''):
+            return True
+        desc = job.get('description') or ''
+        if _MONTHLY_PAY.search(desc) or 'latam' in desc.lower():
+            return True
+        return False
 
     def _fmt_salary(self, lo, hi):
         if lo and hi and lo != hi:
@@ -686,6 +709,10 @@ class JobSearcher:
                 continue
             sal = job.get('salary_min') or 0
             if sal > 0 and sal < min_salary:
+                continue
+            tags = job.get('tags') or []
+            is_gov = any('Government' in str(t) for t in tags)
+            if not is_gov and self._is_noise(job):
                 continue
             job['level'] = self._seniority(job)
             if level == 'entry' and job['level'] == 'senior':
