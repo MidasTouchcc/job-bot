@@ -478,6 +478,16 @@
     document.querySelectorAll('[data-wt]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeWt = btn.dataset.wt;
+    if (allJobs.length) applyWtFilter();
+  }
+
+  function applyWtFilter() {
+    const allowed = activeWt.split(',');
+    let jobs = allJobs;
+    if (!allowed.includes('all')) {
+      jobs = allJobs.filter(j => allowed.includes(j.work_type || 'onsite'));
+    }
+    renderResults(jobs);
   }
 
   function pickLevel(btn) {
@@ -535,13 +545,13 @@
     try {
       const kw  = document.getElementById('inp-kw').value.trim() || PRESETS.both;
       const sal = document.getElementById('inp-sal').value;
-      const qs  = new URLSearchParams({ keywords: kw, work_type: activeWt, min_salary: sal, level: activeLevel });
+      const qs  = new URLSearchParams({ keywords: kw, work_type: 'remote,hybrid,all', min_salary: sal, level: activeLevel });
       const data = await fetch(`/api/search?${qs}`).then(r => r.json());
       allJobs = data.jobs || [];
       clearInterval(iv);
       document.getElementById('loader').style.display = 'none';
-      renderResults(allJobs);
       updateStats(allJobs);
+      applyWtFilter();
     } catch(err) {
       clearInterval(iv);
       document.getElementById('loader').style.display = 'none';
