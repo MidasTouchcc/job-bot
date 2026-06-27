@@ -617,7 +617,7 @@ class JobSearcher:
                 r = requests.get(
                     'https://data.usajobs.gov/api/Search',
                     params={'Keyword': term, 'LocationName': location, 'Radius': 75,
-                            'ResultsPerPage': 25, 'Fields': 'Min'},
+                            'HiringPath': 'public', 'ResultsPerPage': 25, 'Fields': 'Min'},
                     headers=headers, timeout=15
                 )
                 items = (r.json().get('SearchResult') or {}).get('SearchResultItems') or []
