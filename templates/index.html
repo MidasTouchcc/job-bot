@@ -62,8 +62,8 @@
     .chip-dev  { background:#2a1e3f; color:var(--purple); }
 
     /* Preset buttons */
-    .preset-row { display:flex; gap:5px; }
-    .preset-btn { flex:1; padding:7px 4px; background:var(--bg);
+    .preset-row { display:flex; gap:5px; flex-wrap:wrap; }
+    .preset-btn { flex:1 1 28%; padding:7px 4px; background:var(--bg);
       border:1px solid var(--bdr); border-radius:7px;
       color:var(--sub); font-size:11px; cursor:pointer; text-align:center;
       transition:.15s; }
@@ -76,6 +76,12 @@
       border-radius:8px; padding:8px 11px; color:var(--txt);
       font-size:13px; outline:none; transition:.15s; }
     .srch-in:focus { border-color:var(--acc); }
+    .srch-wrap { position:relative; }
+    .srch-wrap .srch-in { padding-right:30px; }
+    .srch-clear { position:absolute; right:6px; top:50%; transform:translateY(-50%);
+      background:none; border:none; color:var(--muted); cursor:pointer;
+      font-size:13px; line-height:1; padding:3px 5px; border-radius:5px; }
+    .srch-clear:hover { color:var(--acc); background:var(--bdr); }
 
     /* Filter buttons */
     .fg { display:flex; flex-direction:column; gap:5px; }
@@ -280,14 +286,19 @@
           onclick="usePreset(this,'dev')">💻 Dev/AI</button>
         <button class="preset-btn" data-preset="ops"
           onclick="usePreset(this,'ops')">💼 Ops</button>
+        <button class="preset-btn" data-preset="gov"
+          onclick="usePreset(this,'gov')">🏛️ Local/Gov</button>
         <button class="preset-btn" data-preset="trading"
           onclick="usePreset(this,'trading')">📈 Trading</button>
         <button class="preset-btn" data-preset="both"
           onclick="usePreset(this,'both')">🌐 All</button>
       </div>
-      <input class="srch-in" id="inp-kw"
-        value="software developer engineer python javascript html css react junior developer web developer full stack ai automation data analyst"
-        placeholder="Or type custom keywords...">
+      <div class="srch-wrap">
+        <input class="srch-in" id="inp-kw"
+          value="software developer engineer python javascript html css react junior developer web developer full stack ai automation data analyst"
+          placeholder="Or type custom keywords...">
+        <button class="srch-clear" onclick="clearKw()" title="Clear keywords">✕</button>
+      </div>
     </div>
 
     <!-- Work Type -->
@@ -426,6 +437,7 @@
   const PRESETS = {
     dev:     'software developer engineer python javascript html css react junior developer web developer full stack ai automation data analyst',
     ops:     'operations data analyst admin coordinator logistics',
+    gov:     'clerk administrative assistant office coordinator customer service warehouse logistics operations dispatcher data entry records specialist technician courier',
     trading: 'trader trading analyst fintech financial analyst market analyst risk management',
     both:    'developer software ai automation operations data analyst coordinator'
   };
@@ -453,6 +465,13 @@
     document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('inp-kw').value = PRESETS[key];
+  }
+
+  function clearKw() {
+    const el = document.getElementById('inp-kw');
+    el.value = '';
+    el.focus();
+    document.querySelectorAll('[data-preset]').forEach(b => b.classList.remove('active'));
   }
 
   function pickWt(btn) {
