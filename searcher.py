@@ -664,8 +664,15 @@ class JobSearcher:
         print(f"   Raw total: {len(all_jobs)}")
 
         allowed = set(work_type_filter.lower().split(','))
-        kw_terms = [k for k in keywords.lower().split() if len(k) > 2]
-        filtered = []
+        # Domain keywords for the relevance gate — strip qualifier / stop-words like
+        # "entry", "level", "remote" so they aren't mistaken for a job type to match.
+        STOPWORDS = {'entry', 'entry-level', 'level', 'junior', 'jr', 'senior', 'sr',
+                     'mid', 'lead', 'remote', 'hybrid', 'onsite', 'on-site', 'job',
+                     'jobs', 'work', 'position', 'role', 'roles', 'any', 'all', 'and', 'the'}
+        kw_terms = [k for k in keywords.lower().split() if len(k) > 2 and k not in STOPWORDS]
+
+        # Pass 1 — work type, salary, and seniority.
+        base = []
         for job in all_jobs:
             wt = job.get('work_type') or 'onsite'
             if 'all' not in allowed and wt not in allowed:
@@ -673,21 +680,25 @@ class JobSearcher:
             sal = job.get('salary_min') or 0
             if sal > 0 and sal < min_salary:
                 continue
-            # Relevance gate: on the remote job-boards the selected keywords must
-            # appear in the TITLE — stops dev/finance roles leaking into an Ops
-            # search via stray words in their long descriptions. Government
-            # listings are exempt so local public-sector jobs still surface.
-            tags = job.get('tags') or []
-            is_gov = any('Government' in str(t) for t in tags)
-            title_l = (job.get('title') or '').lower()
-            if kw_terms and not is_gov and not any(k in title_l for k in kw_terms):
-                continue
-            # Seniority — hide explicit senior / 5+ yr roles when Entry-friendly is on.
             job['level'] = self._seniority(job)
             if level == 'entry' and job['level'] == 'senior':
                 continue
             job['score'] = self._score_job(job)
-            filtered.append(job)
+            base.append(job)
+
+        # Pass 2 — title-relevance gate: keeps an Ops search from returning dev/finance
+        # roles. Government listings always pass. The gate RELAXES itself if it would
+        # leave too few results, so a broad or qualifier-only search is never near-empty.
+        if kw_terms:
+            def _relevant(j):
+                if any('Government' in str(t) for t in (j.get('tags') or [])):
+                    return True
+                title_l = (j.get('title') or '').lower()
+                return any(k in title_l for k in kw_terms)
+            gated = [j for j in base if _relevant(j)]
+            filtered = gated if len(gated) >= 5 else base
+        else:
+            filtered = base
 
         # Deduplicate
         seen, unique = set(), []
