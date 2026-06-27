@@ -30,7 +30,8 @@ def search():
     kw  = request.args.get('keywords', 'software developer python automation ai data analyst operations')
     wt  = request.args.get('work_type', 'remote,hybrid,all')
     sal = int(request.args.get('min_salary', 60000))
-    jobs = JobSearcher().search_all(kw, 'Riverside, CA', sal, wt)
+    lvl = request.args.get('level', 'all')
+    jobs = JobSearcher().search_all(kw, 'Riverside, CA', sal, wt, lvl)
     return jsonify({'jobs': jobs, 'count': len(jobs)})
 
 @app.route('/api/save', methods=['POST'])

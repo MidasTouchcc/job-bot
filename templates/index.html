@@ -309,6 +309,15 @@
       </div>
     </div>
 
+    <!-- Experience Level -->
+    <div class="sb-sec">
+      <div class="sb-lbl">Experience Level</div>
+      <div class="fg">
+        <button class="fbt" data-lvl="all" onclick="pickLevel(this)">🌐 All levels</button>
+        <button class="fbt active" data-lvl="entry" onclick="pickLevel(this)">🌱 Entry-friendly</button>
+      </div>
+    </div>
+
     <!-- Salary -->
     <div class="sb-sec">
       <div class="sb-lbl">Minimum Salary</div>
@@ -421,10 +430,11 @@
     both:    'developer software ai automation operations data analyst coordinator'
   };
 
-  let allJobs  = [];
-  let savedMap = {};
-  let activeWt = 'remote,hybrid,all';
-  let busy     = false;
+  let allJobs   = [];
+  let savedMap  = {};
+  let activeWt  = 'remote,hybrid,all';
+  let activeLevel = 'entry';
+  let busy      = false;
 
   window.addEventListener('load', async () => {
     await loadSaved();
@@ -449,6 +459,12 @@
     document.querySelectorAll('[data-wt]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeWt = btn.dataset.wt;
+  }
+
+  function pickLevel(btn) {
+    document.querySelectorAll('[data-lvl]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeLevel = btn.dataset.lvl;
   }
 
   function pickTab(btn, pane) {
@@ -500,7 +516,7 @@
     try {
       const kw  = document.getElementById('inp-kw').value.trim() || PRESETS.both;
       const sal = document.getElementById('inp-sal').value;
-      const qs  = new URLSearchParams({ keywords: kw, work_type: activeWt, min_salary: sal });
+      const qs  = new URLSearchParams({ keywords: kw, work_type: activeWt, min_salary: sal, level: activeLevel });
       const data = await fetch(`/api/search?${qs}`).then(r => r.json());
       allJobs = data.jobs || [];
       clearInterval(iv);
@@ -546,6 +562,10 @@
       onsite:'<span class="bdg b-ons">📍 On-site</span>' }[j.work_type]
       || '<span class="bdg b-ons">📍 On-site</span>';
 
+    const lvlBadge = j.level === 'entry'
+      ? '<span class="bdg b-rem">🌱 Entry-friendly</span>'
+      : j.level === 'senior' ? '<span class="bdg b-src">🎓 Senior</span>' : '';
+
     const isGov = /gov|riverside|transit|school|education|county|city|federal/i.test(j.source||'');
     const srcBadge = isGov
       ? `<span class="bdg b-gov">🏛️ ${esc(j.source)}</span>`
@@ -576,7 +596,7 @@
     ${scoreEl}
   </div>
   <div class="jco">${esc(j.company)}</div>
-  <div class="jmeta">${wtBadge}${srcBadge}${locBdg}${tagBdgs}</div>
+  <div class="jmeta">${wtBadge}${lvlBadge}${srcBadge}${locBdg}${tagBdgs}</div>
   <div class="jsal${hasSal?'':' none'}">${salTxt}</div>
   ${j.description?`<div class="jdesc">${esc(j.description)}</div>`:''}
   <div class="jfoot">

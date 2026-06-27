@@ -114,6 +114,11 @@ _SKILL_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Seniority signals (used to surface junior / entry-friendly roles).
+_SENIOR_RE = re.compile(r'\b(senior|sr\.?|lead|principal|director|vp|vice president|head of|architect|chief|manager|mgr|supervisor)\b', re.IGNORECASE)
+_JUNIOR_RE = re.compile(r'\b(junior|jr\.?|entry[\s-]?level|entry|associate|apprentice|trainee|intern|internship|graduate)\b', re.IGNORECASE)
+_YEARS_RE  = re.compile(r'(\d{1,2})\s*\+?\s*(?:years|yrs)\b', re.IGNORECASE)
+
 
 class JobSearcher:
 
@@ -164,6 +169,18 @@ class JobSearcher:
         # Title matches matter most; body adds supporting signal.
         raw = len(title_hits) * 14 + len(body_hits) * 4
         return max(0, min(raw, 100))
+
+    def _seniority(self, job):
+        """Classify a posting as 'entry', 'senior', or 'open' (unspecified)."""
+        title = job.get('title') or ''
+        if _JUNIOR_RE.search(title):
+            return 'entry'
+        if _SENIOR_RE.search(title):
+            return 'senior'
+        yrs = [int(m) for m in _YEARS_RE.findall(job.get('description') or '')]
+        if yrs and max(yrs) >= 5:
+            return 'senior'
+        return 'open'
 
     def _fmt_salary(self, lo, hi):
         if lo and hi and lo != hi:
@@ -618,7 +635,7 @@ class JobSearcher:
 
     # ── Main ─────────────────────────────────────────────────────────────────
 
-    def search_all(self, keywords, location, min_salary, work_type_filter):
+    def search_all(self, keywords, location, min_salary, work_type_filter, level='all'):
         print(f"\n🔍 '{keywords}' | {location} | ${min_salary:,}+ | {work_type_filter}\n")
 
         # All sources run concurrently — total time ≈ the slowest source, not the sum.
@@ -647,6 +664,7 @@ class JobSearcher:
         print(f"   Raw total: {len(all_jobs)}")
 
         allowed = set(work_type_filter.lower().split(','))
+        kw_terms = [k for k in keywords.lower().split() if len(k) > 2]
         filtered = []
         for job in all_jobs:
             wt = job.get('work_type') or 'onsite'
@@ -654,6 +672,19 @@ class JobSearcher:
                 continue
             sal = job.get('salary_min') or 0
             if sal > 0 and sal < min_salary:
+                continue
+            # Relevance gate: on the remote job-boards the selected keywords must
+            # appear in the TITLE — stops dev/finance roles leaking into an Ops
+            # search via stray words in their long descriptions. Government
+            # listings are exempt so local public-sector jobs still surface.
+            tags = job.get('tags') or []
+            is_gov = any('Government' in str(t) for t in tags)
+            title_l = (job.get('title') or '').lower()
+            if kw_terms and not is_gov and not any(k in title_l for k in kw_terms):
+                continue
+            # Seniority — hide explicit senior / 5+ yr roles when Entry-friendly is on.
+            job['level'] = self._seniority(job)
+            if level == 'entry' and job['level'] == 'senior':
                 continue
             job['score'] = self._score_job(job)
             filtered.append(job)
