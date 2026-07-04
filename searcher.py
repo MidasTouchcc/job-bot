@@ -117,7 +117,8 @@ _SKILL_RE = re.compile(
 # Seniority signals (used to surface junior / entry-friendly roles).
 _SENIOR_RE = re.compile(r'\b(senior|sr\.?|lead|principal|director|vp|vice president|head of|architect|chief|manager|mgr|supervisor|supervisory|deputy administrator)\b', re.IGNORECASE)
 _JUNIOR_RE = re.compile(r'\b(junior|jr\.?|entry[\s-]?level|entry|associate|apprentice|trainee|intern|internship|graduate)\b', re.IGNORECASE)
-_YEARS_RE  = re.compile(r'(\d{1,2})\s*\+?\s*(?:years|yrs)\b', re.IGNORECASE)
+_YEARS_RE  = re.compile(r'(\d{1,2})\s*(?:\+|(?:\s*(?:-|to)\s*\d{1,2}))?\s*(?:years?|yrs?)\b', re.IGNORECASE)
+_YEARS_WORD_RE = re.compile(r'\b(?:five|six|seven|eight|nine|ten|eleven|twelve|fifteen)\s*(?:\+|or\s+more\s+)?(?:years?|yrs?)\b', re.IGNORECASE)
 
 # Low-quality / off-market filler to drop (foreign-market gigs, data-labeling mills, monthly micro-pay).
 _NOISE_COMPANIES = {'telus digital', 'workada'}
@@ -197,10 +198,11 @@ class JobSearcher:
             return 'entry'
         if _SENIOR_RE.search(title):
             return 'senior'
-        if (job.get('salary_min') or 0) >= 100000:   # $100k+ ≈ not an entry-level role
+        if (job.get('salary_min') or 0) >= 85000:   # $85k+ ≈ not an entry-level role
             return 'senior'
-        yrs = [int(m) for m in _YEARS_RE.findall(job.get('description') or '')]
-        if yrs and max(yrs) >= 5:
+        text = title + ' ' + (job.get('description') or '')
+        yrs = [int(m) for m in _YEARS_RE.findall(text)]
+        if (yrs and max(yrs) >= 5) or _YEARS_WORD_RE.search(text):   # requires 5+ years
             return 'senior'
         return 'open'
 
@@ -637,7 +639,8 @@ class JobSearcher:
                 r = requests.get(
                     'https://data.usajobs.gov/api/Search',
                     params={'Keyword': term, 'LocationName': location, 'Radius': 75,
-                            'HiringPath': 'public', 'ResultsPerPage': 25, 'Fields': 'Min'},
+                            'HiringPath': 'public', 'PayGradeLow': '01', 'PayGradeHigh': '09',
+                            'ResultsPerPage': 25, 'Fields': 'Min'},
                     headers=headers, timeout=15
                 )
                 items = (r.json().get('SearchResult') or {}).get('SearchResultItems') or []
