@@ -1,8 +1,8 @@
 # 🔍 Andre's Job Bot
 
-A self-hosted job-search dashboard that pulls live postings from **8 sources** into one place, scores each one against your skill profile, and lets you track what you've saved and applied to — all running locally on your machine.
+A self-hosted job-search dashboard that pulls live postings from **6 sources** into one place, scores each one against your skill profile, and lets you track what you've saved and applied to — all running locally on your machine.
 
-Built as a personal project to make the job hunt faster: instead of checking eight sites by hand, run one search and get a ranked, de-duplicated list filtered to remote/hybrid/local work and your minimum salary.
+Built as a personal project to make the job hunt faster: instead of checking six sites by hand, run one search and get a ranked, de-duplicated list filtered to work type, experience level, and your minimum salary.
 
 > **Note:** This is a job *aggregator* with a keyword-based relevance score — it does not use any LLM/AI model. It fetches from public APIs and RSS feeds.
 
@@ -10,10 +10,11 @@ Built as a personal project to make the job hunt faster: instead of checking eig
 
 ## Features
 
-- **One search, 8 sources** — RemoteOK, Jobicy, We Work Remotely, Remotive, The Muse, SoCal government feeds, Craigslist (IE / LA / OC), and USAJobs (federal).
+- **One search, 6 sources** — RemoteOK, Jobicy, We Work Remotely, Remotive, The Muse, and USAJobs (federal, filtered to public, entry-level grades).
 - **Relevance scoring** — every posting is scored against a 100+ keyword skill profile and shown as a `% match`.
-- **Search modes** — quick presets for **Dev/AI**, **Ops**, **Trading**, or **All**, plus a free-text keyword box.
-- **Filters** — work type (remote / hybrid / on-site) with live counts, and a minimum-salary slider.
+- **Search modes** — quick presets for **Dev/AI**, **Ops**, **Local/Gov**, **Trading**, or **All**, plus a free-text keyword box.
+- **Filters** — work type (remote / hybrid / on-site) with live counts, an **experience-level filter** (entry-friendly hides senior/5+ yr roles), and a minimum-salary slider.
+- **Noise control** — hides data-labeling mills, foreign-market listings, monthly micro-pay gigs, and "remote" jobs locked to another state.
 - **Smart cleanup** — salary parsing from free text, de-duplication, and sorting by work type → match score → salary.
 - **Saved / Applied tracker** — save jobs and mark them applied; status persists in a local database.
 - **Optional federal jobs** — add a free USAJobs API key in Settings to include federal listings.
@@ -83,12 +84,12 @@ Get a free key at [developer.usajobs.gov](https://developer.usajobs.gov/apireque
 |---|---|
 | RemoteOK | Remote (global / US) |
 | Jobicy | Remote (US) |
-| We Work Remotely | Remote — back office, management & finance, support |
-| Remotive | Remote — ops, finance, data, support, HR |
+| We Work Remotely | Remote — programming, devops, back office, finance, support |
+| Remotive | Remote — software, ops, finance, data, support, HR |
 | The Muse | Flexible / remote at top companies |
-| SoCal Government | Riverside & San Bernardino counties + Inland Empire cities |
-| Craigslist | Inland Empire, Los Angeles, Orange County |
-| USAJobs | Federal (requires free API key) |
+| USAJobs | Federal (free API key) — public, entry-level grades, 75-mi radius |
+
+> City/county RSS feeds and Craigslist were removed after the providers discontinued RSS / blocked automated access. USAJobs covers government listings.
 
 ---
 
@@ -110,6 +111,6 @@ job-bot/
 
 ## License
 
-Personal project — free to use and adapt.
+MIT — see [LICENSE](LICENSE). Free to use and adapt.
 
 **Author:** Andre Charles · [github.com/MidasTouchcc](https://github.com/MidasTouchcc) · [linkedin.com/in/andre-charles-727468185](https://www.linkedin.com/in/andre-charles-727468185)

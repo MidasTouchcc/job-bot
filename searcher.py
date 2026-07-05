@@ -1,7 +1,8 @@
 """
 searcher.py — Job search engine for Andre's Job Bot
-Sources: RemoteOK, Jobicy, We Work Remotely, Remotive, The Muse,
-         Craigslist (IE/LA/OC), SoCal Government RSS feeds, USAJobs
+Sources: RemoteOK, Jobicy, We Work Remotely, Remotive, The Muse, USAJobs
+(Craigslist and governmentjobs.com RSS feeds were removed after the providers
+ blocked bots / discontinued RSS — USAJobs covers government listings.)
 """
 
 import requests
@@ -125,7 +126,13 @@ _NOISE_COMPANIES = {'telus digital', 'workada'}
 _NOISE_TITLE = re.compile(r'\b(data partner|data label|online data analyst|labeling specialist)\b', re.IGNORECASE)
 _LANG_TITLE  = re.compile(r'\((?:french|spanish|arabic|german|portuguese|mandarin|hindi)\b|spanish speakers', re.IGNORECASE)
 _FOREIGN_LOC = re.compile(r'\b(bogot|bangalore|india|ireland|dublin|ecuador|quito|peru|lima|brazil|brasil|colombia|cyprus|finland|ukraine|philippines|pakistan|new delhi|lisbon|portugal|romania|metropolitain)\b', re.IGNORECASE)
-_MONTHLY_PAY = re.compile(r'\$\s?\d{3,4}(?:[.,]\d+)?\s?(?:[-–]\s?\$?\d{3,4})?\s?(?:usd)?\s?/\s?month', re.IGNORECASE)
+_MONTHLY_PAY = re.compile(r'\$\s?\d{1,4}(?:,\d{3})?(?:\.\d+)?\s*(?:[-–]\s*\$?\s?\d{1,4}(?:,\d{3})?)?\s*(?:usd)?\s*/\s*month', re.IGNORECASE)
+# Foreign-market conventions in titles: "(m/f/d)" / "(all genders)" (German postings),
+# "Based in Poland", Portuguese/Spanish words — these listings aren't for the US market.
+_FOREIGN_TITLE = re.compile(
+    r'\((?:[mfwxd])(?:/[mfwxd]){1,2}\)|\ball genders\b|'
+    r'\bbased in (?:poland|europe|germany|brazil|india|romania|slovakia|ukraine|the philippines)\b|'
+    r'educa[çc][ãa]o|professor\(a\)|\(fresh grad\)', re.IGNORECASE)
 
 # "Remote" jobs that actually require living in a specific area. Hide them unless that
 # area is California / Pacific / anywhere-in-the-US (i.e. somewhere Midas could take).
@@ -211,7 +218,7 @@ class JobSearcher:
         if (job.get('company') or '').strip().lower() in _NOISE_COMPANIES:
             return True
         title = job.get('title') or ''
-        if _NOISE_TITLE.search(title) or _LANG_TITLE.search(title):
+        if _NOISE_TITLE.search(title) or _LANG_TITLE.search(title) or _FOREIGN_TITLE.search(title):
             return True
         if _FOREIGN_LOC.search(job.get('location') or ''):
             return True
@@ -237,14 +244,15 @@ class JobSearcher:
     # ── Source: RemoteOK ─────────────────────────────────────────────────────
 
     def search_remoteok(self, keywords):
+        """Fetches the full API dump and filters locally — RemoteOK's tag
+        endpoint silently returns nothing for multi-word/unknown tags."""
         jobs = []
         kw_list = keywords.lower().split()
-        tags = '%2B'.join(kw_list[:3])
         try:
             r = requests.get(
-                f'https://remoteok.com/api?tag={tags}',
+                'https://remoteok.com/api',
                 headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
-                timeout=15
+                timeout=20
             )
             data = r.json()
             for job in data[1:]:
@@ -353,6 +361,13 @@ class JobSearcher:
                     date  = item.findtext('pubDate') or ''
                     if not title or not link:
                         continue
+                    # WWR titles come as "Company: Job Title" — split so the
+                    # company renders properly and dedupe works across sources.
+                    company = ''
+                    if ': ' in title:
+                        maybe_co, maybe_title = title.split(': ', 1)
+                        if 0 < len(maybe_co) <= 40 and maybe_title:
+                            company, title = maybe_co.strip(), maybe_title.strip()
                     combined = (title + ' ' + self._clean_html(desc)).lower()
                     if kw_list and not any(k in combined for k in kw_list):
                         continue
@@ -360,7 +375,7 @@ class JobSearcher:
                     jobs.append({
                         'id': f"wwr_{hash(link) & 0xFFFFFFFF}",
                         'title': title,
-                        'company': '',
+                        'company': company,
                         'location': 'Remote (US)',
                         'work_type': 'remote',
                         'salary_min': sal_min,
@@ -495,132 +510,6 @@ class JobSearcher:
                 print(f"  [The Muse - {cat}] {e}")
         return jobs
 
-    # ── Source: SoCal Government (within ~55 mi of Riverside) ────────────────
-
-    def search_local_government(self):
-        feeds = [
-            # Riverside area
-            ('https://www.governmentjobs.com/careers/riversideca/rss/alljobs',
-             'City of Riverside', 'Riverside, CA'),
-            ('https://www.governmentjobs.com/careers/countyofriverside/rss/alljobs',
-             'County of Riverside', 'Riverside, CA'),
-            ('https://www.governmentjobs.com/careers/rctransit/rss/alljobs',
-             'Riverside Transit Agency', 'Riverside, CA'),
-            ('https://www.governmentjobs.com/careers/riversideusd/rss/alljobs',
-             'Riverside Unified School District', 'Riverside, CA'),
-            ('https://www.governmentjobs.com/careers/rcoe/rss/alljobs',
-             'Riverside County Office of Education', 'Riverside, CA'),
-            # San Bernardino area
-            ('https://www.governmentjobs.com/careers/sanbernardino/rss/alljobs',
-             'City of San Bernardino', 'San Bernardino, CA'),
-            ('https://www.governmentjobs.com/careers/sbcounty/rss/alljobs',
-             'San Bernardino County', 'San Bernardino, CA'),
-            # Inland Empire cities
-            ('https://www.governmentjobs.com/careers/ontario/rss/alljobs',
-             'City of Ontario', 'Ontario, CA'),
-            ('https://www.governmentjobs.com/careers/fontana/rss/alljobs',
-             'City of Fontana', 'Fontana, CA'),
-            ('https://www.governmentjobs.com/careers/corona/rss/alljobs',
-             'City of Corona', 'Corona, CA'),
-        ]
-        jobs = []
-        for url, agency, loc in feeds:
-            try:
-                r = requests.get(
-                    url,
-                    headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
-                    timeout=12
-                )
-                root = ET.fromstring(r.content)
-                channel = root.find('channel')
-                if channel is None:
-                    continue
-                for item in channel.findall('item'):
-                    title = item.findtext('title') or ''
-                    link  = item.findtext('link')  or ''
-                    desc  = item.findtext('description') or ''
-                    date  = item.findtext('pubDate') or ''
-                    sal_min, sal_max = self._parse_salary_from_text(desc + ' ' + title)
-                    lower = (title + desc).lower()
-                    work_type = 'hybrid' if ('telework' in lower or 'remote' in lower) else 'onsite'
-                    jobs.append({
-                        'id': f"govjob_{hash(link) & 0xFFFFFFFF}",
-                        'title': title,
-                        'company': agency,
-                        'location': loc,
-                        'work_type': work_type,
-                        'salary_min': sal_min,
-                        'salary_max': sal_max,
-                        'salary_display': self._fmt_salary(sal_min, sal_max),
-                        'url': link,
-                        'description': self._clean_html(desc),
-                        'tags': ['🏛️ Government', '📍 Local', '💰 Great Benefits'],
-                        'source': agency,
-                        'date': date
-                    })
-            except Exception as e:
-                print(f"  [{agency}] {e}")
-        return jobs
-
-    # ── Source: Craigslist (IE + LA + OC) ────────────────────────────────────
-
-    def search_craigslist(self, keywords):
-        jobs = []
-        kw_encoded = requests.utils.quote(keywords)
-        areas = [
-            ('inlandempire', 'Inland Empire, CA'),
-            ('losangeles',   'Los Angeles, CA'),
-            ('orangecounty', 'Orange County, CA'),
-        ]
-        for subdomain, area_label in areas:
-            url = f'https://{subdomain}.craigslist.org/search/jjj?query={kw_encoded}&format=rss'
-            try:
-                r = requests.get(
-                    url,
-                    headers={'User-Agent': 'Mozilla/5.0 (PersonalJobBot/1.0)'},
-                    timeout=15
-                )
-                root = ET.fromstring(r.content)
-                items = (
-                    root.findall('{http://purl.org/rss/1.0/}item') or
-                    root.findall('.//item')
-                )
-                for item in items[:20]:
-                    def txt(tag, _item=item):
-                        return (
-                            _item.findtext(f'{{http://purl.org/rss/1.0/}}{tag}') or
-                            _item.findtext(f'{{http://purl.org/dc/elements/1.1/}}{tag}') or
-                            _item.findtext(tag) or ''
-                        ).strip()
-                    title = txt('title')
-                    link  = txt('link')
-                    desc  = txt('description') or txt('summary')
-                    date  = txt('date') or txt('pubDate')
-                    if not title or not link:
-                        continue
-                    sal_min, sal_max = self._parse_salary_from_text(title + ' ' + desc)
-                    lower = (title + desc).lower()
-                    work_type = ('remote' if 'remote' in lower else
-                                 'hybrid' if 'hybrid' in lower else 'onsite')
-                    jobs.append({
-                        'id': f"cl_{hash(link) & 0xFFFFFFFF}",
-                        'title': title,
-                        'company': f'({area_label})',
-                        'location': area_label,
-                        'work_type': work_type,
-                        'salary_min': sal_min,
-                        'salary_max': sal_max,
-                        'salary_display': self._fmt_salary(sal_min, sal_max),
-                        'url': link,
-                        'description': self._clean_html(desc),
-                        'tags': ['📍 Local SoCal'],
-                        'source': f'Craigslist {area_label.split(",")[0]}',
-                        'date': date
-                    })
-            except Exception as e:
-                print(f"  [Craigslist {area_label}] {e}")
-        return jobs
-
     # ── Source: USAJobs (Federal — optional) ─────────────────────────────────
 
     def search_usajobs(self, keywords, location):
@@ -698,8 +587,6 @@ class JobSearcher:
             'We Work Remotely': lambda: self.search_weworkremotely(keywords),
             'Remotive':         lambda: self.search_remotive(keywords),
             'The Muse':         lambda: self.search_muse(keywords),
-            'SoCal Government': self.search_local_government,
-            'Craigslist':       lambda: self.search_craigslist(keywords),
             'USAJobs':          lambda: self.search_usajobs(keywords, location),
         }
         all_jobs = []
