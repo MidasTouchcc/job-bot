@@ -133,6 +133,15 @@ _FOREIGN_TITLE = re.compile(
     r'\((?:[mfwxd])(?:/[mfwxd]){1,2}\)|\ball genders\b|'
     r'\bbased in (?:poland|europe|germany|brazil|india|romania|slovakia|ukraine|the philippines)\b|'
     r'educa[çc][ãa]o|professor\(a\)|\(fresh grad\)', re.IGNORECASE)
+# Roles that require living OUTSIDE the US (residency in a foreign region/country),
+# even when the source tags them "Remote (US)". Scanned against title + description.
+_FOREIGN_RESIDENCY = re.compile(
+    r'(?:based|located|residing|reside|candidates?|applicants?|role|position)\s+'
+    r'(?:in|based\s+in|located\s+in|for\s+candidates\s+in|must\s+be\s+in)\s+'
+    r'(?:asia|europe|apac|emea|latam|latin\s+america|africa|south\s+america|southeast\s+asia|'
+    r'india|poland|germany|brazil|brasil|mexico|argentina|colombia|the\s+philippines|philippines|'
+    r'ukraine|romania|pakistan|nigeria|kenya|egypt|portugal|spain|cyprus|finland|slovakia|'
+    r'canada\s+only|uk\s+only)\b', re.IGNORECASE)
 
 # "Remote" jobs that actually require living in a specific area. Hide them unless that
 # area is California / Pacific / anywhere-in-the-US (i.e. somewhere Midas could take).
@@ -165,7 +174,7 @@ class JobSearcher:
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
-    def _clean_html(self, text, max_len=600):
+    def _clean_html(self, text, max_len=2500):
         if not text:
             return ''
         text = re.sub(r'<[^>]+>', ' ', str(text))
@@ -224,6 +233,8 @@ class JobSearcher:
             return True
         desc = job.get('description') or ''
         if _MONTHLY_PAY.search(desc) or 'latam' in desc.lower():
+            return True
+        if _FOREIGN_RESIDENCY.search(title + ' ' + desc):   # requires living outside the US
             return True
         return False
 
